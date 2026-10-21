@@ -72,6 +72,7 @@ final class PersistenceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class VoiceScriptTests: XCTestCase {
     private let tabata = WorkoutPlan(name: "Tabata", definition: simple(prepare: 10, work: 20, rest: 10, rounds: 8))
 

@@ -71,6 +71,12 @@ def export_attachments(xcresult, out_dir):
             # "01-library_0_6F3A....png" -> "01-library.png"
             stem, ext = os.path.splitext(human)
             stem = re.sub(r"_\d+_[0-9A-Fa-f-]{36}$", "", stem)
+            # Only screenshots and our own text logs; skip videos and XCTest debug dumps.
+            if ext.lower() not in (".png", ".jpg", ".jpeg", ".txt"):
+                continue
+            if ext.lower() == ".txt" and not stem.startswith("cue-log"):
+                continue
+            stem = re.sub(r'[^A-Za-z0-9._-]+', "-", stem).strip("-")
             dest = os.path.join(out_dir, stem + ext)
             shutil.copy(src, dest)
             written.append(os.path.basename(dest))

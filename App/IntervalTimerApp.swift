@@ -61,7 +61,7 @@ struct RootView: View {
             // Short timers so UI tests finish quickly.
             modelContext.insert(TimerTemplate(
                 name: "Quick test",
-                definition: .simple(SimpleConfig(prepare: 2, work: 4, rest: 2, rounds: 2, cycles: 1, restBetweenCycles: 0, coolDown: 0)),
+                definition: .simple(SimpleConfig(prepare: 5, work: 4, rest: 3, rounds: 2, cycles: 1, restBetweenCycles: 0, coolDown: 0)),
                 color: .green,
                 sortOrder: -2
             ))

@@ -23,7 +23,7 @@ final class IntervalTimerUITests: XCTestCase {
 
     func test02CreateThenEditATimerInPlace() {
         XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
-        app.buttons["Add timer"].tap()
+        openAddMenu()
         app.buttons["New timer"].tap()
 
         let name = app.textFields["nameField"]
@@ -49,7 +49,7 @@ final class IntervalTimerUITests: XCTestCase {
 
     func test03PresetsGallery() {
         XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
-        app.buttons["Add timer"].tap()
+        openAddMenu()
         app.buttons["From a preset"].tap()
         let pyramid = listItem(startingWith: "Pyramid")
         XCTAssertTrue(pyramid.waitForExistence(timeout: 5))
@@ -64,12 +64,12 @@ final class IntervalTimerUITests: XCTestCase {
     // MARK: - Running a workout
 
     func test04RunAWorkoutFromStartToFinish() {
-        // Quick test: 2 s get ready, 4 s work, 2 s rest, 4 s work = 12 s.
+        // Quick test: 5 s get ready, 4 s work, 3 s rest, 4 s work = 16 s.
         startTimer("Quick test")
 
         let phase = element("phaseName")
         XCTAssertTrue(phase.waitForExistence(timeout: 5))
-        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 3), "Got \(phase.label)")
+        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5), "Got \(phase.label)")
         snapshot("06-run-get-ready")
 
         XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Work never started; got \(phase.label)")
@@ -107,10 +107,12 @@ final class IntervalTimerUITests: XCTestCase {
         startTimer("Quick test")
         let phase = element("phaseName")
         XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5))
+        element("pauseButton").tap()   // paused, so skips are judged without the clock moving
         element("nextButton").tap()
-        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 2), "Skip forward failed; got \(phase.label)")
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Skip forward failed; got \(phase.label)")
+        XCTAssertTrue(element("countdown").label.contains("4 seconds"), "Skip should land at the start of Work: \(element("countdown").label)")
         element("previousButton").tap()
-        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 2), "Skip back failed; got \(phase.label)")
+        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5), "Skip back failed; got \(phase.label)")
 
         element("endButton").tap()
         // The confirmation's button, not the X button that shares its label.
@@ -136,6 +138,7 @@ final class IntervalTimerUITests: XCTestCase {
         app.activate()
 
         XCTAssertTrue(phase.waitForExistence(timeout: 10))
+        sleep(1)   // let the return-to-app transition finish before the screenshot
         snapshot("12-after-background")
         let log = element("cueLog").label
         attach(text: log, named: "cue-log-background")
@@ -168,8 +171,12 @@ final class IntervalTimerUITests: XCTestCase {
     func test08Settings() {
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(app.switches["Voice guidance"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Free forever. No ads, no subscriptions, no tracking. Your workouts stay on your device."].exists)
         snapshot("14-settings")
+        app.swipeUp()
+        app.swipeUp()
+        let footer = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Free forever")).firstMatch
+        XCTAssertTrue(footer.waitForExistence(timeout: 3), "Free-forever note missing from Settings")
+        snapshot("15-settings-bottom")
     }
 
     // MARK: - Helpers
@@ -184,6 +191,13 @@ final class IntervalTimerUITests: XCTestCase {
             .descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@", text))
             .firstMatch
+    }
+
+    /// The toolbar "+" menu. XCUITest can't AX-scroll nav bar menus, so tap its centre directly.
+    private func openAddMenu() {
+        let add = app.buttons["Add timer"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func startTimer(_ name: String) {
