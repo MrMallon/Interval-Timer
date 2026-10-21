@@ -103,8 +103,8 @@ enum TimerSummary {
             var text = "\(config.rounds) × \(TimeFormat.clock(config.work))"
             if config.rest > 0 { text += " / \(TimeFormat.clock(config.rest))" }
             if config.cycles > 1 {
-                text = String(localized: "\(text), \(config.cycles) cycles",
-                              comment: "Timer summary: rounds × work / rest, then the number of cycles")
+                text += ", " + String(localized: "\(config.cycles) cycles",
+                                      comment: "Number of cycles in a timer summary")
             }
             return text + " · " + total
         case .custom:

@@ -74,7 +74,7 @@ def export_attachments(xcresult, out_dir):
             # Only screenshots and our own text logs; skip videos and XCTest debug dumps.
             if ext.lower() not in (".png", ".jpg", ".jpeg", ".txt"):
                 continue
-            if ext.lower() == ".txt" and not stem.startswith("cue-log"):
+            if ext.lower() == ".txt" and not stem.startswith(("cue-log", "a11y")):
                 continue
             stem = re.sub(r'[^A-Za-z0-9._-]+', "-", stem).strip("-")
             dest = os.path.join(out_dir, stem + ext)

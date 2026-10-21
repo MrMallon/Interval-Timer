@@ -221,7 +221,7 @@ struct RunView: View {
     private var countdownAccessibilityLabel: String {
         let seconds = Int(snapshot.remainingInSegment.rounded(.up))
         let phase = snapshot.segment.map { PhaseStyle.name(for: $0) } ?? ""
-        return String(localized: "\(phase), \(seconds) seconds remaining")
+        return phase + ", " + String(localized: "\(seconds) seconds remaining")
     }
 
     // MARK: - Actions

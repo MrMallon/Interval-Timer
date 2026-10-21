@@ -188,6 +188,89 @@ final class IntervalTimerUITests: XCTestCase {
         snapshot("15-settings-bottom")
     }
 
+    // MARK: - Languages
+
+    func test09GermanAndJapanese() {
+        for (code, timers, history, workTitle) in [("de", "Timer", "Verlauf", "Belastung"), ("ja", "タイマー", "履歴", "運動")] {
+            app.terminate()
+            app.launchArguments = ["-uiTesting", "-AppleLanguages", "(\(code))", "-AppleLocale", code]
+            app.launch()
+
+            XCTAssertTrue(app.navigationBars[timers].waitForExistence(timeout: 15), "\(code): library title not translated")
+            XCTAssertTrue(app.tabBars.buttons[history].exists, "\(code): History tab not translated")
+            snapshot("16-\(code)-library")
+
+            startTimer("Quick test")
+            element("pauseButton").tap()
+            element("nextButton").tap()
+            let phase = element("phaseName")
+            XCTAssertTrue(wait(phase, labelContains: workTitle, timeout: 5), "\(code): got \(phase.label)")
+            snapshot("17-\(code)-run")
+        }
+    }
+
+    // MARK: - Accessibility
+
+    /// Runs Apple's accessibility audit (contrast, labels, hit areas, Dynamic Type,
+    /// clipped text) on every main screen and attaches what it finds.
+    func test10AccessibilityAudit() throws {
+        XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
+        audit("library")
+
+        openAddMenu()
+        app.buttons["New timer"].tap()
+        XCTAssertTrue(app.textFields["nameField"].waitForExistence(timeout: 5))
+        audit("editor")
+        app.buttons["Cancel"].tap()
+
+        startTimer("Quick test")
+        element("pauseButton").tap()
+        audit("run")
+        element("endButton").tap()
+        let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "End workout", "endButton")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        XCTAssertTrue(element("summaryTitle").waitForExistence(timeout: 5))
+        audit("summary")
+        element("doneButton").tap()
+
+        for tab in ["Stopwatch", "History", "Settings"] {
+            app.tabBars.buttons[tab].tap()
+            sleep(1)
+            audit(tab.lowercased())
+        }
+    }
+
+    private func audit(_ screen: String) {
+        var found: [String] = []
+        do {
+            try app.performAccessibilityAudit { issue in
+                let element = issue.element
+                found.append("\(Self.auditName(issue.auditType)) | \(issue.compactDescription) | id=\(element?.identifier ?? "") | label=\(element?.label ?? "")")
+                return true   // collect, don't fail, so every screen gets audited
+            }
+        } catch {
+            found.append("audit error: \(error)")
+        }
+        attach(text: found.isEmpty ? "no issues" : found.joined(separator: "\n"), named: "a11y-\(screen)")
+        auditIssues[screen] = found
+    }
+
+    private var auditIssues: [String: [String]] = [:]
+
+    private static func auditName(_ type: XCUIAccessibilityAuditType) -> String {
+        switch type {
+        case .contrast: return "contrast"
+        case .elementDetection: return "elementDetection"
+        case .hitRegion: return "hitRegion"
+        case .sufficientElementDescription: return "description"
+        case .dynamicType: return "dynamicType"
+        case .textClipped: return "textClipped"
+        case .trait: return "trait"
+        default: return "type-\(type.rawValue)"
+        }
+    }
+
     // MARK: - Helpers
 
     private func element(_ identifier: String) -> XCUIElement {
