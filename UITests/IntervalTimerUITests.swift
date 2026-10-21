@@ -217,15 +217,28 @@ final class IntervalTimerUITests: XCTestCase {
         XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
         app.open(URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!)   // "Quick test"
 
+        // iOS may ask "Open in Interval Timer?" first; accept it if so.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let openButton = springboard.buttons["Open"]
+        if openButton.waitForExistence(timeout: 3) { openButton.tap() }
+
         let phase = element("phaseName")
-        XCTAssertTrue(phase.waitForExistence(timeout: 10), "Link didn't start the timer")
+        let started = phase.waitForExistence(timeout: 10)
+        if !started {
+            snapshot("debug-after-link")
+            let shot = XCTAttachment(screenshot: springboard.screenshot())
+            shot.name = "debug-springboard-after-link"
+            shot.lifetime = .keepAlways
+            add(shot)
+            attach(text: "app state=\(app.state.rawValue) quickTestRow=\(element("timer-Quick test").exists) tabata=\(element("timer-Tabata").exists)", named: "a11y-debug-link")
+        }
+        XCTAssertTrue(started, "Link didn't start the timer")
         let log = element("cueLog")
         XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
 
         // Show the Dynamic Island / Live Activity from the Home Screen.
         XCUIDevice.shared.press(.home)
         sleep(2)
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let shot = XCTAttachment(screenshot: springboard.screenshot())
         shot.name = "18-dynamic-island"
         shot.lifetime = .keepAlways

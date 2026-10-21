@@ -19,6 +19,9 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Interval stopwatch with laps
 - History with weekly totals and "start again"
 - Pale colours mode, keep-screen-on, haptics
+- Live Activity: the countdown, phase and round on the Lock Screen and in the Dynamic Island
+- Quick start widget for the Home Screen: tap a timer to start it
+- Siri and Shortcuts: "Start Tabata in Interval Timer"
 
 ## Build and run
 
@@ -63,6 +66,9 @@ Not covered by the simulator: real phone calls, the lock button and other music 
 | `App/Views` | Library, editor, presets, history, stopwatch, settings |
 | `Shared` | Code used by both apps: SwiftData models, settings, colours, voice lines, iPhone–Watch sync |
 | `Watch` | Apple Watch app: library, editor, run screen with wrist taps and voice, history, settings |
+| `Widgets` | Widget extension: Quick start Home Screen widget and the workout Live Activity / Dynamic Island |
+| `SharedIOS` | Code shared by the iPhone app and its widget: Live Activity data, widget timer list, `intervaltimer://` links |
+| `App/Intents` | Siri and Shortcuts: "Start Timer" with your saved timers |
 | `AppTests`, `UITests` | Simulator unit and UI tests |
 | `project.yml` | XcodeGen spec (the `.xcodeproj` is generated, not committed) |
 
@@ -97,6 +103,7 @@ To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch o
 
 1. MVP — iPhone and iPad (done)
 2. Apple Watch app, accessibility pass, 15 languages (done)
-3. Live Activity and Dynamic Island, widgets, Siri shortcuts, optional Apple Health logging
+3. Live Activity and Dynamic Island, Quick start widget, Siri shortcuts (done)
+4. Optional Apple Health logging
 
 No cloud sync is planned: everything stays on your devices.
