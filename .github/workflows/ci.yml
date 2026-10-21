@@ -15,14 +15,17 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Show Xcode
         run: xcodebuild -version
 
       - name: Test TimerKit
         working-directory: Packages/TimerKit
-        run: swift test
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee test.log
+          echo "::notice title=TimerKit tests::$(grep -E 'Executed [0-9]+ tests' test.log | tail -1)"
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -40,6 +43,11 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          # Surface compiler warnings as annotations on the run.
+          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|Packages)/#\1/#' | sort -u | head -40 \
+            | while IFS= read -r line; do echo "::warning title=Compiler::$line"; done || true
+          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|Packages)/#\1/#' | sort -u | head -40 \
+            | while IFS= read -r line; do echo "::error title=Compiler::$line"; done || true
           grep -q "BUILD SUCCEEDED" build.log
 
       - name: Upload build log
