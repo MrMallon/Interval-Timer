@@ -1,20 +1,66 @@
 name: CI
 
+# Every push and PR gets the quick check (engine tests + app build, ~2 min).
+# The full simulator suite (~14 min) runs only when asked for, because macOS
+# runner minutes count 10x against the free allowance on a private repo:
+#   - add the "simulator-tests" label to a pull request, or
+#   - run this workflow manually from the Actions tab (Run workflow).
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event.action == 'labeled' && 'sim' || 'push' }}
   cancel-in-progress: true
 
 permissions:
   contents: write   # to publish test screenshots to the ci-screenshots branch
 
 jobs:
-  build-and-test:
+  quick:
+    if: github.event.action != 'labeled'
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Test TimerKit
+        working-directory: Packages/TimerKit
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee test.log
+          echo "::notice title=TimerKit tests::$(grep -E 'Executed [0-9]+ tests' test.log | tail -1)"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build app
+        run: |
+          xcodegen generate
+          set +e
+          xcodebuild build \
+            -project IntervalTimer.xcodeproj \
+            -scheme IntervalTimer \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO > build.log 2>&1
+          code=$?
+          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+            | while IFS= read -r line; do echo "::warning title=Compiler::$line"; done
+          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+            | while IFS= read -r line; do echo "::error title=Compiler::$line"; done
+          tail -3 build.log
+          exit $code
+
+  simulator-tests:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'simulator-tests') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'simulator-tests'))
     runs-on: macos-15
     timeout-minutes: 45
     steps:
