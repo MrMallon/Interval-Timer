@@ -7,6 +7,8 @@ struct StopwatchView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var stopwatch = Stopwatch()
     @State private var startedAt: Date?
+    /// Big digits that still follow the user's text size setting.
+    @ScaledMetric(relativeTo: .largeTitle) private var digitSize: CGFloat = 76
 
     private static func now() -> TimeInterval { Date().timeIntervalSinceReferenceDate }
 
@@ -17,7 +19,7 @@ struct StopwatchView: View {
                     let now = Self.now()
                     VStack(spacing: 8) {
                         Text(TimeFormat.stopwatch(stopwatch.elapsed(at: now)))
-                            .font(.system(size: 76, weight: .semibold, design: .rounded))
+                            .font(.system(size: digitSize, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
@@ -28,14 +30,16 @@ struct StopwatchView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .accessibilityElement(children: .combine)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("Stopwatch"))
+                    .accessibilityValue(Text(Self.spoken(stopwatch.elapsed(at: now))))
                 }
                 .padding(.top, 32)
 
                 HStack {
                     CircleButton(
                         title: stopwatch.status == .running ? "Lap" : "Reset",
-                        tint: .gray,
+                        style: .secondary,
                         disabled: stopwatch.status == .idle
                     ) {
                         if stopwatch.status == .running {
@@ -47,7 +51,7 @@ struct StopwatchView: View {
                     Spacer()
                     CircleButton(
                         title: stopwatch.status == .running ? "Stop" : "Start",
-                        tint: stopwatch.status == .running ? .red : .green,
+                        style: stopwatch.status == .running ? .stop : .start,
                         disabled: false
                     ) {
                         if stopwatch.status == .running {
@@ -70,6 +74,11 @@ struct StopwatchView: View {
             }
             .navigationTitle("Stopwatch")
         }
+    }
+
+    /// "1 minute, 23 seconds" for VoiceOver instead of "1:23.45".
+    static func spoken(_ seconds: TimeInterval) -> String {
+        Duration.seconds(Int(seconds)).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide))
     }
 
     private func saveAndReset() {
@@ -98,8 +107,23 @@ struct StopwatchView: View {
 }
 
 private struct CircleButton: View {
+    enum Style {
+        case start, stop, secondary
+
+        /// Solid fills chosen so the label passes WCAG AA contrast.
+        var fill: Color {
+            switch self {
+            case .start: return PhaseStyle.color(for: .rest, pale: false)
+            case .stop: return PhaseStyle.color(for: .work, pale: false)
+            case .secondary: return Color(.systemGray5)
+            }
+        }
+
+        var text: Color { self == .secondary ? .primary : .white }
+    }
+
     let title: LocalizedStringKey
-    let tint: Color
+    let style: Style
     let disabled: Bool
     let action: () -> Void
 
@@ -107,13 +131,14 @@ private struct CircleButton: View {
         Button(action: action) {
             Text(title)
                 .font(.title3.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .padding(.horizontal, 10)
                 .frame(width: 92, height: 92)
-                .foregroundStyle(tint)
-                .background(tint.opacity(0.18), in: Circle())
-                .overlay(Circle().stroke(tint.opacity(0.4), lineWidth: 2).padding(4))
+                .foregroundStyle(style.text)
+                .background(style.fill, in: Circle())
         }
         .buttonStyle(.plain)
         .disabled(disabled)
-        .opacity(disabled ? 0.5 : 1)
     }
 }

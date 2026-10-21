@@ -153,7 +153,7 @@ private struct HistoryRow: View {
         let total = TimeFormat.clock(Int(record.totalSeconds.rounded()))
         switch record.kind {
         case .stopwatch:
-            return String(localized: "\(total) · \(record.laps.count) laps")
+            return total + " · " + String(localized: "\(record.laps.count) laps")
         case .interval:
             let rounds = String(localized: "\(record.roundsCompleted)/\(record.totalRounds) rounds")
             return record.completed ? "\(total) · \(rounds)" : String(localized: "\(total) · \(rounds) · ended early")

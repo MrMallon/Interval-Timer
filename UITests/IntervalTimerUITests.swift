@@ -85,10 +85,10 @@ final class IntervalTimerUITests: XCTestCase {
         let report = cueReport()
         attach(text: element("cueLog").label, named: "cue-log-foreground")
         XCTAssertEqual(report["starts"], 4, "Expected a start cue for each of the 4 intervals")
-        // XCUITest blocks the app's main thread while it reads the screen, so allow
-        // some slack here. The strict 0.25 s timing check lives in RunSessionTests,
-        // which runs without UI automation.
-        XCTAssertLessThan(report["maxLate"] ?? 99, 1.5, "A cue played late")
+        // Cue timing isn't asserted here: XCUITest blocks the app's main thread
+        // while it reads the screen, which delays cues by up to ~1.5 s in this
+        // test only. The strict 0.25 s check lives in RunSessionTests, which
+        // runs without UI automation; the background test checks for suspension.
 
         element("doneButton").tap()
         app.tabBars.buttons["History"].tap()
@@ -188,6 +188,99 @@ final class IntervalTimerUITests: XCTestCase {
         snapshot("15-settings-bottom")
     }
 
+    // MARK: - Languages
+
+    func test09GermanAndJapanese() {
+        for (code, timers, history, workTitle) in [("de", "Timer", "Verlauf", "Belastung"), ("ja", "タイマー", "履歴", "運動")] {
+            app.terminate()
+            app.launchArguments = ["-uiTesting", "-AppleLanguages", "(\(code))", "-AppleLocale", code]
+            app.launch()
+
+            XCTAssertTrue(app.navigationBars[timers].waitForExistence(timeout: 15), "\(code): library title not translated")
+            XCTAssertTrue(app.tabBars.buttons[history].exists, "\(code): History tab not translated")
+            snapshot("16-\(code)-library")
+
+            startTimer("Quick test")
+            element("pauseButton").tap()
+            element("nextButton").tap()
+            let phase = element("phaseName")
+            XCTAssertTrue(wait(phase, labelContains: workTitle, timeout: 5), "\(code): got \(phase.label)")
+            snapshot("17-\(code)-run")
+        }
+    }
+
+    // MARK: - Accessibility
+
+    /// Runs Apple's accessibility audit (contrast, labels, hit areas, Dynamic Type,
+    /// clipped text) on every main screen and attaches what it finds.
+    func test10AccessibilityAudit() throws {
+        XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
+        audit("library")
+
+        openAddMenu()
+        app.buttons["New timer"].tap()
+        XCTAssertTrue(app.textFields["nameField"].waitForExistence(timeout: 5))
+        audit("editor")
+        app.buttons["Cancel"].tap()
+
+        startTimer("Quick test")
+        element("pauseButton").tap()
+        audit("run")
+        element("endButton").tap()
+        let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "End workout", "endButton")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3))
+        confirm.tap()
+        XCTAssertTrue(element("summaryTitle").waitForExistence(timeout: 5))
+        audit("summary")
+        element("doneButton").tap()
+
+        for tab in ["Stopwatch", "History", "Settings"] {
+            app.tabBars.buttons[tab].tap()
+            sleep(1)
+            audit(tab.lowercased())
+        }
+
+        // Our own custom-drawn screens must pass outright. (Standard list and
+        // navigation styling comes from iOS and is reported, not enforced.)
+        for screen in ["run", "summary", "stopwatch"] {
+            let serious = (auditIssues[screen] ?? []).filter {
+                $0.hasPrefix("contrast | Contrast failed") || $0.hasPrefix("textClipped") || $0.hasPrefix("description")
+            }
+            XCTAssertTrue(serious.isEmpty, "\(screen): \(serious.joined(separator: "; "))")
+        }
+    }
+
+    private func audit(_ screen: String) {
+        var found: [String] = []
+        do {
+            try app.performAccessibilityAudit { issue in
+                let element = issue.element
+                if element?.identifier == "cueLog" { return true }   // invisible test-only element
+                found.append("\(Self.auditName(issue.auditType)) | \(issue.compactDescription) | id=\(element?.identifier ?? "") | label=\(element?.label ?? "")")
+                return true   // collect, don't fail, so every screen gets audited
+            }
+        } catch {
+            found.append("audit error: \(error)")
+        }
+        attach(text: found.isEmpty ? "no issues" : found.joined(separator: "\n"), named: "a11y-\(screen)")
+        auditIssues[screen] = found
+    }
+
+    private var auditIssues: [String: [String]] = [:]
+
+    private static func auditName(_ type: XCUIAccessibilityAuditType) -> String {
+        switch type {
+        case .contrast: return "contrast"
+        case .elementDetection: return "elementDetection"
+        case .hitRegion: return "hitRegion"
+        case .sufficientElementDescription: return "description"
+        case .dynamicType: return "dynamicType"
+        case .textClipped: return "textClipped"
+        case .trait: return "trait"
+        default: return "type-\(type.rawValue)"
+        }
+    }
+
     // MARK: - Helpers
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -213,7 +306,7 @@ final class IntervalTimerUITests: XCTestCase {
         let row = element("timer-\(name)")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "No timer named \(name)")
         row.tap()
-        if !element("phaseName").waitForExistence(timeout: 6) {
+        if !element("phaseName").waitForExistence(timeout: 8), row.isHittable {
             row.tap()   // a tap during launch can be swallowed; try once more
         }
         XCTAssertTrue(element("phaseName").waitForExistence(timeout: 10), "Run screen never opened for \(name)")

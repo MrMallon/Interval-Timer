@@ -57,7 +57,7 @@ struct RootView: View {
             guard let preset = Preset.all.first(where: { $0.id == starter.id }) else { continue }
             modelContext.insert(TimerTemplate(
                 id: Preset.starterTemplateID(starter.id),
-                name: preset.name,
+                name: PresetText.name(preset),
                 definition: preset.definition,
                 color: starter.color,
                 sortOrder: offset

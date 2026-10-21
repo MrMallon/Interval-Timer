@@ -50,8 +50,8 @@ struct RunView: View {
                     .accessibilityIdentifier("cueLog")
             }
         }
-        .foregroundStyle(.white)
-        .preferredColorScheme(.dark)
+        .foregroundStyle(PhaseStyle.foreground(pale: settings.paleColors))
+        .preferredColorScheme(settings.paleColors ? .light : .dark)
         .statusBarHidden(!showSummary)
         .persistentSystemOverlays(.hidden)
         .onAppear { session.start() }
@@ -124,7 +124,7 @@ struct RunView: View {
                 Image(systemName: "xmark")
                     .font(.title3.bold())
                     .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.18), in: Circle())
+                    .background(PhaseStyle.controlFill, in: Circle())
             }
             .accessibilityLabel("End workout")
             .accessibilityIdentifier("endButton")
@@ -136,7 +136,6 @@ struct RunView: View {
                     .lineLimit(1)
                 Text(String(localized: "\(TimeFormat.countdown(snapshot.totalRemaining)) left"))
                     .font(.subheadline.monospacedDigit())
-                    .opacity(0.85)
             }
             .accessibilityElement(children: .combine)
             Spacer()
@@ -189,12 +188,10 @@ struct RunView: View {
         if let next = snapshot.nextSegment {
             Text(String(localized: "Next: \(PhaseStyle.name(for: next)) · \(TimeFormat.clock(next.duration))"))
                 .font(.title3.weight(.semibold))
-                .opacity(0.9)
                 .padding(.top, 4)
         } else if snapshot.segment != nil {
             Text("Last interval")
                 .font(.title3.weight(.semibold))
-                .opacity(0.9)
                 .padding(.top, 4)
         }
     }
@@ -221,7 +218,7 @@ struct RunView: View {
     private var countdownAccessibilityLabel: String {
         let seconds = Int(snapshot.remainingInSegment.rounded(.up))
         let phase = snapshot.segment.map { PhaseStyle.name(for: $0) } ?? ""
-        return String(localized: "\(phase), \(seconds) seconds remaining")
+        return phase + ", " + String(localized: "\(seconds) seconds remaining")
     }
 
     // MARK: - Actions
@@ -276,7 +273,6 @@ private struct CounterChip: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(title)
-                .opacity(0.8)
             Text(value)
                 .fontWeight(.bold)
                 .monospacedDigit()
@@ -284,7 +280,7 @@ private struct CounterChip: View {
         .font(.title3)
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
-        .background(.white.opacity(0.18), in: Capsule())
+        .background(PhaseStyle.controlFill, in: Capsule())
         .accessibilityElement(children: .combine)
     }
 }
@@ -295,9 +291,9 @@ private struct SegmentProgressBar: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.25))
+                Capsule().fill(PhaseStyle.controlFill)
                 Capsule()
-                    .fill(.white)
+                    .fill(.foreground)
                     .frame(width: proxy.size.width * max(0, min(1, progress)))
             }
         }
@@ -317,7 +313,7 @@ private struct ControlButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: size * 0.38, weight: .bold))
                 .frame(width: size, height: size)
-                .background(.white.opacity(0.2), in: Circle())
+                .background(PhaseStyle.controlFill, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))

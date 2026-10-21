@@ -44,7 +44,7 @@ struct WatchRootView: View {
             let id = Preset.starterTemplateID(starter.id)
             let existing = (try? modelContext.fetchCount(FetchDescriptor<TimerTemplate>(predicate: #Predicate { $0.id == id }))) ?? 0
             guard existing == 0 else { continue }
-            modelContext.insert(TimerTemplate(id: id, name: preset.name, definition: preset.definition, color: starter.color, sortOrder: offset))
+            modelContext.insert(TimerTemplate(id: id, name: PresetText.name(preset), definition: preset.definition, color: starter.color, sortOrder: offset))
         }
         try? modelContext.save()
         SyncCoordinator.shared.libraryChanged()

@@ -13,10 +13,10 @@ struct PresetsView: View {
                     onPick(preset)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(preset.name)
+                        Text(PresetText.name(preset))
                             .font(.headline)
                             .foregroundStyle(.primary)
-                        Text(preset.summary)
+                        Text(PresetText.summary(preset))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Text(TimeFormat.clock(WorkoutPlan(name: preset.name, definition: preset.definition).totalDuration))

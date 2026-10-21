@@ -71,6 +71,10 @@ jobs:
           echo "::notice title=Built apps::$apps"
           exit $code
 
+      - name: Check translations
+        run: |
+          python3 .github/scripts/check_strings.py build Shared/Localizable.xcstrings --dump keys.json
+
   simulator-tests:
     if: github.event_name != 'push'
     runs-on: macos-15
