@@ -88,6 +88,23 @@ jobs:
           ls -lh dist
           codesign -d --entitlements :- "$L" 2>/dev/null | head -20 || true
 
+      - name: Check the .ipa files
+        run: |
+          set -euo pipefail
+          for ipa in dist/*.ipa; do
+            rm -rf check && mkdir check && unzip -q "$ipa" -d check
+            APP=check/Payload/IntervalTimer.app
+            info() { /usr/libexec/PlistBuddy -c "Print $1" "$2" 2>/dev/null || echo "-"; }
+            ents() { codesign -d --entitlements :- "$1" 2>/dev/null | plutil -convert json -o - - 2>/dev/null || echo "{}"; }
+            parts="app=$(info CFBundleIdentifier $APP/Info.plist) v$(info CFBundleShortVersionString $APP/Info.plist)($(info CFBundleVersion $APP/Info.plist)) minOS=$(info MinimumOSVersion $APP/Info.plist) arch=$(lipo -archs $APP/IntervalTimer)"
+            parts="$parts | widget=$(info CFBundleIdentifier $APP/PlugIns/IntervalTimerWidgets.appex/Info.plist)"
+            if [ -d "$APP/Watch" ]; then parts="$parts | watch=$(info CFBundleIdentifier $APP/Watch/IntervalTimerWatch.app/Info.plist) arch=$(lipo -archs $APP/Watch/IntervalTimerWatch.app/IntervalTimerWatch)"; else parts="$parts | no watch app"; fi
+            parts="$parts | app entitlements=$(ents $APP) | widget entitlements=$(ents $APP/PlugIns/IntervalTimerWidgets.appex)"
+            parts="$parts | size=$(du -h "$ipa" | cut -f1) | liveActivities=$(info NSSupportsLiveActivities $APP/Info.plist) bgModes=$(info UIBackgroundModes:0 $APP/Info.plist)"
+            echo "::notice title=$(basename "$ipa")::$parts"
+            codesign --verify --deep --strict "$APP" && echo "signature ok"
+          done
+
       - name: Keep the .ipa files from a pull request build
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
