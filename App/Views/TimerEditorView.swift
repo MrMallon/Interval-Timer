@@ -241,6 +241,8 @@ struct TimerEditorView: View {
             let maxOrder = (try? modelContext.fetch(FetchDescriptor<TimerTemplate>()))?.map(\.sortOrder).max() ?? -1
             modelContext.insert(TimerTemplate(name: finalName, definition: definition, color: color, sortOrder: maxOrder + 1))
         }
+        try? modelContext.save()
+        SyncCoordinator.shared.libraryChanged()
         dismiss()
     }
 }

@@ -136,18 +136,28 @@ struct LibraryView: View {
             sortOrder: (templates.map(\.sortOrder).max() ?? 0) + 1
         )
         modelContext.insert(copy)
+        saveAndSync()
     }
 
     private func delete(_ template: TimerTemplate) {
+        SyncCoordinator.shared.recordDeletion(of: template.id)
         modelContext.delete(template)
+        saveAndSync()
     }
 
     private func move(from source: IndexSet, to destination: Int) {
         var ordered = templates
         ordered.move(fromOffsets: source, toOffset: destination)
-        for (index, template) in ordered.enumerated() {
+        for (index, template) in ordered.enumerated() where template.sortOrder != index {
             template.sortOrder = index
+            template.touch()
         }
+        saveAndSync()
+    }
+
+    private func saveAndSync() {
+        try? modelContext.save()
+        SyncCoordinator.shared.libraryChanged()
     }
 }
 

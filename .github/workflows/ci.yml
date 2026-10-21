@@ -48,11 +48,30 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO > build.log 2>&1
           code=$?
-          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages|Shared|Watch)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::warning title=Compiler::$line"; done
-          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages|Shared|Watch)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::error title=Compiler::$line"; done
           tail -3 build.log
+          exit $code
+
+      - name: Build Watch app
+        run: |
+          set +e
+          xcodebuild build \
+            -project IntervalTimer.xcodeproj \
+            -scheme IntervalTimerWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO > build-watch.log 2>&1
+          code=$?
+          grep -E "^/.*: (warning|error): " build-watch.log | sed -E 's#^.*/(App|Packages|Shared|Watch)/#\1/#' | sort -u | head -40 \
+            | while IFS= read -r line; do
+                case "$line" in *": error: "*) echo "::error title=Watch compiler::$line";; *) echo "::warning title=Watch compiler::$line";; esac
+              done
+          tail -3 build-watch.log
+          apps=$(cd build/Build/Products && ls -d */*.app */*.app/Watch/*.app 2>/dev/null | tr '\n' ' ')
+          echo "::notice title=Built apps::$apps"
           exit $code
 
   simulator-tests:
@@ -116,9 +135,9 @@ jobs:
             -derivedDataPath build \
             | tee build.log | grep -E "error:|warning:|\*\* TEST BUILD (SUCCEEDED|FAILED)" || true
           # Surface compiler warnings and errors as annotations on the run.
-          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages|Shared|Watch)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::warning title=Compiler::$line"; done || true
-          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
+          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages|Shared|Watch)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::error title=Compiler::$line"; done || true
           grep -q "TEST BUILD SUCCEEDED" build.log
 
