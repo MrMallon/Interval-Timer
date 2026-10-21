@@ -219,7 +219,8 @@ final class IntervalTimerUITests: XCTestCase {
     /// and show it on the Lock Screen / Dynamic Island as a Live Activity.
     func test11WidgetLinkStartsTimerWithLiveActivity() {
         XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
-        let link = URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!   // "Quick test"
+        // "Background test": 12 s intervals, so the Dynamic Island screenshot shows a live countdown.
+        let link = URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000002")!
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let phase = element("phaseName")
         // Open it through the system, as a widget tap does. (XCUIApplication.open
@@ -235,9 +236,10 @@ final class IntervalTimerUITests: XCTestCase {
         let log = element("cueLog")
         XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
 
-        // Show the Dynamic Island / Live Activity from the Home Screen.
+        // Show the Dynamic Island / Live Activity from the Home Screen, mid-interval.
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
         XCUIDevice.shared.press(.home)
-        sleep(2)
+        sleep(3)
         let shot = XCTAttachment(screenshot: springboard.screenshot())
         shot.name = "18-dynamic-island"
         shot.lifetime = .keepAlways

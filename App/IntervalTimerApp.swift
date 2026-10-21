@@ -89,6 +89,7 @@ struct RootView: View {
                 sortOrder: -2
             ))
             modelContext.insert(TimerTemplate(
+                id: UUID(uuidString: "7E570000-0000-4000-8000-000000000002")!,
                 name: "Background test",
                 definition: .simple(SimpleConfig(prepare: 2, work: 12, rest: 6, rounds: 2, cycles: 1, restBetweenCycles: 0, coolDown: 0)),
                 color: .purple,
