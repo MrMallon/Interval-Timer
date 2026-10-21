@@ -1,19 +1,17 @@
 name: CI
 
-# Every push and PR gets the quick check (engine tests + app build, ~2 min).
-# The full simulator suite (~14 min) runs only when asked for, because macOS
-# runner minutes count 10x against the free allowance on a private repo:
-#   - add the "simulator-tests" label to a pull request, or
-#   - run this workflow manually from the Actions tab (Run workflow).
+# Every push to main and every pull request gets:
+#   - quick: engine tests + iPhone and Watch builds (~2 min)
+#   - simulator-tests: app unit + UI tests in the iOS Simulator (~14 min), on PRs
+#     and manual runs. The repo is public, so these runner minutes are free.
 on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event.action == 'labeled' && 'sim' || 'push' }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -21,7 +19,6 @@ permissions:
 
 jobs:
   quick:
-    if: github.event.action != 'labeled'
     runs-on: macos-15
     timeout-minutes: 20
     steps:
@@ -75,11 +72,7 @@ jobs:
           exit $code
 
   simulator-tests:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' &&
-       contains(github.event.pull_request.labels.*.name, 'simulator-tests') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'simulator-tests'))
+    if: github.event_name != 'push'
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -161,7 +154,10 @@ jobs:
         run: python3 .github/scripts/xcresult_report.py TestResults.xcresult screenshots
 
       - name: Publish screenshots to the ci-screenshots branch
-        if: always() && hashFiles('screenshots/*.png') != ''
+        # Fork PRs get a read-only token, so only publish for branches in this repo.
+        if: >-
+          always() && hashFiles('screenshots/*.png') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           TOKEN: ${{ github.token }}
         run: |

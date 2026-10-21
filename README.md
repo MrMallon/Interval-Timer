@@ -44,7 +44,7 @@ cd Packages/TimerKit && swift test
 | `AppTests` (21 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines | Simulator suite |
 | `UITests` (8 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings | Simulator suite |
 
-The quick check (~2 min) runs on every push. The simulator suite (~14 min) runs when you add the **simulator-tests** label to a pull request (it then re-runs on every push until you remove the label), or when you start the CI workflow by hand from the Actions tab. macOS minutes count 10× against GitHub's free allowance on a private repo, so one simulator run uses about 140 of the 2,000 free minutes a month.
+The quick check (~2 min: engine tests plus iPhone and Watch builds) runs on every push to `main` and every pull request. The simulator suite (~14 min) runs on every pull request, and you can start it by hand from the Actions tab. The repo is public, so GitHub Actions minutes are free.
 
 Each simulator run publishes its screenshots to the [`ci-screenshots`](../../tree/ci-screenshots) branch.
 
@@ -83,5 +83,5 @@ To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch o
 ## Roadmap
 
 1. MVP — iPhone and iPad (done)
-2. Apple Watch app (this), VoiceOver pass, more languages
+2. Apple Watch app (done); next: VoiceOver pass, more languages
 3. Live Activity and Dynamic Island, widgets, Siri shortcuts, Apple Health logging, iCloud sync
