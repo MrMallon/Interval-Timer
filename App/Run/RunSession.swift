@@ -43,6 +43,7 @@ final class RunSession: Identifiable {
     @ObservationIgnored private let audio = AudioCuePlayer()
     @ObservationIgnored private let haptics = Haptics()
     @ObservationIgnored private let liveActivity = LiveActivityController()
+    @ObservationIgnored private var lastDebugTick = 0
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var pausedByInterruption = false
 
@@ -182,6 +183,10 @@ final class RunSession: Identifiable {
                 record(cue, firedAt: elapsedNow)
             }
         }
+        if LaunchEnvironment.isUITesting, Int(now * 2) != lastDebugTick {
+            lastDebugTick = Int(now * 2)
+            refreshDebugSummary()
+        }
         if liveActivity.isActive {
             if justFinished {
                 liveActivity.end(activityState(), finished: true)
@@ -253,12 +258,16 @@ final class RunSession: Identifiable {
         let background = UIApplication.shared.applicationState == .background
         cueRecords.append(CueRecord(event: cue.event, scheduledAt: cue.time, firedAt: firedAt, inBackground: background))
         if LaunchEnvironment.isUITesting {
-            debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
-                + " la=\(liveActivity.isActive ? 1 : 0)"
-                + " laEnd=\(String(format: "%.1f", liveActivity.systemSecondsToPhaseEnd ?? -99))"
-                + " laPhase=\(liveActivity.systemPhaseName ?? "-")"
-                + " appRemain=\(String(format: "%.1f", snapshot.remainingInSegment))"
+            refreshDebugSummary()
         }
+    }
+
+    private func refreshDebugSummary() {
+        debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
+            + " la=\(liveActivity.isActive ? 1 : 0)"
+            + " laEnd=\(String(format: "%.1f", liveActivity.systemSecondsToPhaseEnd ?? -99))"
+            + " laPhase=\(liveActivity.systemPhaseName ?? "-")"
+            + " appRemain=\(String(format: "%.1f", snapshot.remainingInSegment))"
     }
 
     static func summarize(_ records: [CueRecord], audioRunning: Bool) -> String {
