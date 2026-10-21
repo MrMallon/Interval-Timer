@@ -56,7 +56,7 @@ struct RootView: View {
         }
         .overlay(alignment: .bottom) {
             if LaunchEnvironment.isUITesting {
-                Text("url=\(router.lastURL) pending=\(router.pendingStart?.uuidString ?? "-")")
+                Text(verbatim: "url=\(router.lastURL) pending=\(router.pendingStart?.uuidString ?? "-")")
                     .font(.system(size: 2))
                     .opacity(0.02)
                     .allowsHitTesting(false)
