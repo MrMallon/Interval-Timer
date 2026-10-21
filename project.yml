@@ -58,4 +58,30 @@ targets:
         ENABLE_PREVIEWS: true
         SUPPORTS_MACCATALYST: false
     scheme:
-      testTargets: []
+      testTargets:
+        - IntervalTimerTests
+        - IntervalTimerUITests
+
+  IntervalTimerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AppTests
+    dependencies:
+      - target: IntervalTimer
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mrmallon.intervaltimer.tests
+
+  IntervalTimerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: IntervalTimer
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mrmallon.intervaltimer.uitests

@@ -10,10 +10,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write   # to publish test screenshots to the ci-screenshots branch
+
 jobs:
   build-and-test:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
@@ -33,26 +36,94 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
-      - name: Build app (iOS Simulator)
+      - name: Pick and boot an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          def version(runtime):
+              return [int(x) for x in runtime.split("iOS-")[1].split("-")]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=version, reverse=True)
+          for runtime in runtimes:
+              for d in devices[runtime]:
+                  if d["name"].startswith("iPhone") and "Pro" in d["name"]:
+                      print(d["udid"]); sys.exit()
+          for runtime in runtimes:
+              for d in devices[runtime]:
+                  if d["name"].startswith("iPhone"):
+                      print(d["udid"]); sys.exit()
+          ')
+          xcrun simctl list devices | grep "$UDID"
+          echo "::notice title=Simulator::$(xcrun simctl list devices | grep "$UDID" | sed -E 's/ \(.*//' | xargs)"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build app and tests
         run: |
           set -o pipefail
-          xcodebuild build \
+          xcodebuild build-for-testing \
             -project IntervalTimer.xcodeproj \
             -scheme IntervalTimer \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
-          # Surface compiler warnings as annotations on the run.
-          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|Packages)/#\1/#' | sort -u | head -40 \
+            | tee build.log | grep -E "error:|warning:|\*\* TEST BUILD (SUCCEEDED|FAILED)" || true
+          # Surface compiler warnings and errors as annotations on the run.
+          grep -E "^/.*: warning: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::warning title=Compiler::$line"; done || true
-          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|Packages)/#\1/#' | sort -u | head -40 \
+          grep -E "^/.*: error: " build.log | sed -E 's#^.*/(App|AppTests|UITests|Packages)/#\1/#' | sort -u | head -40 \
             | while IFS= read -r line; do echo "::error title=Compiler::$line"; done || true
-          grep -q "BUILD SUCCEEDED" build.log
+          grep -q "TEST BUILD SUCCEEDED" build.log
 
-      - name: Upload build log
-        if: failure()
+      - name: Run app tests in the simulator
+        id: test
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project IntervalTimer.xcodeproj \
+            -scheme IntervalTimer \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            -resultBundlePath TestResults.xcresult \
+            | tee test-app.log | grep -E "Test (Case|Suite).*(passed|failed)|\*\* TEST" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" test-app.log
+
+      - name: Report results and export screenshots
+        if: always() && hashFiles('TestResults.xcresult/Info.plist') != ''
+        run: python3 .github/scripts/xcresult_report.py TestResults.xcresult screenshots
+
+      - name: Publish screenshots to the ci-screenshots branch
+        if: always() && hashFiles('screenshots/*.png') != ''
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          cd screenshots
+          {
+            echo "# Simulator screenshots"
+            echo
+            echo "From commit ${GITHUB_SHA::7} on \`${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}\`, run [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
+            echo
+            for f in *.txt; do [ -f "$f" ] && echo "- \`${f%.txt}\`: \`$(cat "$f")\`"; done
+            echo
+            for f in *.png; do echo "### ${f%.png}"; echo; echo "<img src=\"$f\" width=\"320\">"; echo; done
+          } > README.md
+          git init -q -b ci-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Screenshots from ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
+          echo "::notice title=Screenshots::${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/ci-screenshots"
+
+      - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: test-results
+          path: |
+            TestResults.xcresult
+            screenshots
+            build.log
+            test-app.log
+          if-no-files-found: ignore

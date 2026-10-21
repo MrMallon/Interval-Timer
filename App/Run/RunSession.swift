@@ -21,6 +21,21 @@ final class RunSession: Identifiable {
     private(set) var startedAt: Date?
     private(set) var endedAt: Date?
     private(set) var endedEarly = false
+    /// One-line cue report shown (invisibly) to UI tests.
+    private(set) var debugSummary = "starts=0 countdowns=0 bg=0 maxLate=0.00 audio=0"
+
+    struct CueRecord: Equatable {
+        let event: CueEvent
+        /// When the cue was due, in seconds from workout start.
+        let scheduledAt: TimeInterval
+        /// When it actually played, in seconds from workout start.
+        let firedAt: TimeInterval
+        let inBackground: Bool
+        var lateness: TimeInterval { firedAt - scheduledAt }
+    }
+
+    /// Every cue that has played, in order.
+    @ObservationIgnored private(set) var cueRecords: [CueRecord] = []
 
     @ObservationIgnored private var engine: TimerEngine
     @ObservationIgnored private var cursor: CueCursor
@@ -157,9 +172,11 @@ final class RunSession: Identifiable {
             snapshot = newSnapshot
         }
         if engine.status == .running || justFinished || force {
-            let due = cursor.advance(to: engine.elapsed(at: now))
+            let elapsedNow = engine.elapsed(at: now)
+            let due = cursor.advance(to: elapsedNow)
             for cue in due {
                 perform(cue.event)
+                record(cue, firedAt: elapsedNow)
             }
         }
         if justFinished {
@@ -213,6 +230,26 @@ final class RunSession: Identifiable {
             if cue.voice, let line = VoiceScript.line(for: event, plan: plan) { audio.speak(line, interrupt: false) }
         }
     }
+
+    private func record(_ cue: ScheduledCue, firedAt: TimeInterval) {
+        let background = UIApplication.shared.applicationState == .background
+        cueRecords.append(CueRecord(event: cue.event, scheduledAt: cue.time, firedAt: firedAt, inBackground: background))
+        if LaunchEnvironment.isUITesting {
+            debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
+        }
+    }
+
+    static func summarize(_ records: [CueRecord], audioRunning: Bool) -> String {
+        let starts = records.filter { if case .segmentStart = $0.event { return true }; return false }.count
+        let countdowns = records.filter { if case .countdown = $0.event { return true }; return false }.count
+        let background = records.filter(\.inBackground).count
+        let maxLate = records.map(\.lateness).max() ?? 0
+        return "starts=\(starts) countdowns=\(countdowns) bg=\(background) maxLate=\(String(format: "%.2f", maxLate)) audio=\(audioRunning ? 1 : 0)"
+    }
+
+    /// Audio state, for tests.
+    var isAudioSessionActive: Bool { audio.isSessionActive }
+    var isAudioEngineRunning: Bool { audio.isEngineRunning }
 
     private func handleInterruption(began: Bool, shouldResume: Bool) {
         let now = Self.now()

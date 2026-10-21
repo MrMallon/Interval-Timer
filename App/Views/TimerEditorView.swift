@@ -71,6 +71,7 @@ struct TimerEditorView: View {
                 Section {
                     TextField("Name", text: $name)
                         .font(.headline)
+                        .accessibilityIdentifier("nameField")
                     ColorRow(selection: $color)
                 }
 
@@ -109,6 +110,7 @@ struct TimerEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
                         .disabled(plan.isEmpty)
+                        .accessibilityIdentifier("saveButton")
                 }
             }
             .alert("Switch to Simple?", isPresented: $confirmSimple) {

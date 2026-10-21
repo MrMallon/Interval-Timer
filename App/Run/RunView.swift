@@ -40,6 +40,15 @@ struct RunView: View {
                 .opacity(flashOpacity)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
+
+            if LaunchEnvironment.isUITesting {
+                // Invisible cue report the UI tests read back.
+                Text(session.debugSummary)
+                    .font(.system(size: 2))
+                    .opacity(0.02)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("cueLog")
+            }
         }
         .foregroundStyle(.white)
         .preferredColorScheme(.dark)
@@ -90,6 +99,7 @@ struct RunView: View {
                         .minimumScaleFactor(0.4)
                         .contentTransition(.numericText(countsDown: true))
                         .accessibilityLabel(countdownAccessibilityLabel)
+                        .accessibilityIdentifier("countdown")
                     counters
                     SegmentProgressBar(progress: snapshot.segmentProgress)
                         .frame(height: 8)
@@ -117,6 +127,7 @@ struct RunView: View {
                     .background(.white.opacity(0.18), in: Circle())
             }
             .accessibilityLabel("End workout")
+            .accessibilityIdentifier("endButton")
 
             Spacer()
             VStack(spacing: 2) {
@@ -138,6 +149,7 @@ struct RunView: View {
         HStack(spacing: 10) {
             if let segment = snapshot.segment {
                 Image(systemName: PhaseStyle.symbol(for: segment.kind))
+                    .accessibilityHidden(true)
                 Text(PhaseStyle.name(for: segment))
             } else {
                 Text("Ready")
@@ -147,6 +159,8 @@ struct RunView: View {
         .textCase(.uppercase)
         .lineLimit(1)
         .minimumScaleFactor(0.5)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("phaseName")
     }
 
     @ViewBuilder
@@ -158,12 +172,14 @@ struct RunView: View {
                     title: "Round",
                     value: "\(max(1, snapshot.segment?.round ?? 1))/\(plan.roundsPerCycle)"
                 )
+                .accessibilityIdentifier("roundCounter")
             }
             if plan.cycleCount > 1 {
                 CounterChip(
                     title: "Cycle",
                     value: "\(max(1, snapshot.segment?.cycle ?? 1))/\(plan.cycleCount)"
                 )
+                .accessibilityIdentifier("cycleCounter")
             }
         }
     }
@@ -185,17 +201,18 @@ struct RunView: View {
 
     private var controls: some View {
         HStack(spacing: 36) {
-            ControlButton(systemImage: "backward.end.fill", size: 64, label: "Previous interval") {
+            ControlButton(systemImage: "backward.end.fill", size: 64, label: "Previous interval", identifier: "previousButton") {
                 session.skipBackward()
             }
             ControlButton(
                 systemImage: session.isPaused ? "play.fill" : "pause.fill",
                 size: 96,
-                label: session.isPaused ? "Resume" : "Pause"
+                label: session.isPaused ? "Resume" : "Pause",
+                identifier: "pauseButton"
             ) {
                 session.togglePause()
             }
-            ControlButton(systemImage: "forward.end.fill", size: 64, label: "Next interval") {
+            ControlButton(systemImage: "forward.end.fill", size: 64, label: "Next interval", identifier: "nextButton") {
                 session.skipForward()
             }
         }
@@ -290,6 +307,7 @@ private struct ControlButton: View {
     let systemImage: String
     let size: CGFloat
     let label: LocalizedStringKey
+    let identifier: String
     let action: () -> Void
 
     var body: some View {
@@ -301,5 +319,6 @@ private struct ControlButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
+        .accessibilityIdentifier(identifier)
     }
 }

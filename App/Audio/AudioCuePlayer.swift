@@ -50,12 +50,23 @@ final class AudioCuePlayer: NSObject {
         do {
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
-            try startEngine()
             isActive = true
         } catch {
-            print("Audio activation failed: \(error)")
+            print("Audio session activation failed: \(error)")
+            return
+        }
+        do {
+            try startEngine()
+        } catch {
+            print("Audio engine failed to start: \(error)")
         }
     }
+
+    /// True while our audio session is active (never when every sound is off).
+    var isSessionActive: Bool { isActive }
+
+    /// True while the tone engine renders; this is what keeps the app alive on a locked screen.
+    var isEngineRunning: Bool { engine.isRunning }
 
     func deactivate() {
         speech.stopSpeaking(at: .immediate)

@@ -20,6 +20,7 @@ struct SummaryView: View {
             VStack(spacing: 6) {
                 Text(completed ? "Workout complete" : "Workout ended")
                     .font(.largeTitle.bold())
+                    .accessibilityIdentifier("summaryTitle")
                 Text(session.name)
                     .font(.title3)
                     .opacity(0.85)
@@ -43,6 +44,7 @@ struct SummaryView: View {
                         .padding(.vertical, 16)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 16))
                 }
+                .accessibilityIdentifier("repeatButton")
                 Button(action: onDone) {
                     Text("Done")
                         .font(.headline)
@@ -51,6 +53,7 @@ struct SummaryView: View {
                         .foregroundStyle(.black)
                         .background(.white, in: RoundedRectangle(cornerRadius: 16))
                 }
+                .accessibilityIdentifier("doneButton")
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 24)

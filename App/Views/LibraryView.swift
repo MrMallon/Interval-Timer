@@ -183,5 +183,6 @@ private struct TemplateRow: View {
         .accessibilityLabel("\(template.name), \(TimerSummary.describe(template.definition))")
         .accessibilityHint("Starts the timer. Swipe for edit and delete.")
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("timer-\(template.name)")
     }
 }
