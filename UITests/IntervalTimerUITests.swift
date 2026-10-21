@@ -215,22 +215,27 @@ final class IntervalTimerUITests: XCTestCase {
     /// and show it on the Lock Screen / Dynamic Island as a Live Activity.
     func test11WidgetLinkStartsTimerWithLiveActivity() {
         XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
-        app.open(URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!)   // "Quick test"
-
-        // iOS may ask "Open in Interval Timer?" first; accept it if so.
+        let link = URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!   // "Quick test"
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let openButton = springboard.buttons["Open"]
-        if openButton.waitForExistence(timeout: 3) { openButton.tap() }
-
         let phase = element("phaseName")
-        let started = phase.waitForExistence(timeout: 10)
+        var how = "app.open"
+        app.open(link)
+        var started = phase.waitForExistence(timeout: 8)
+        if !started {
+            // Open it the way the system does for a widget tap, accepting any prompt.
+            how = "system.open"
+            XCUIDevice.shared.system.open(link)
+            let openButton = springboard.buttons["Open"]
+            if openButton.waitForExistence(timeout: 3) { openButton.tap() }
+            started = phase.waitForExistence(timeout: 10)
+        }
+        attach(text: "\(how) started=\(started) \(element("routerLog").label)", named: "a11y-debug-link")
         if !started {
             snapshot("debug-after-link")
             let shot = XCTAttachment(screenshot: springboard.screenshot())
             shot.name = "debug-springboard-after-link"
             shot.lifetime = .keepAlways
             add(shot)
-            attach(text: "app state=\(app.state.rawValue) quickTestRow=\(element("timer-Quick test").exists) tabata=\(element("timer-Tabata").exists)", named: "a11y-debug-link")
         }
         XCTAssertTrue(started, "Link didn't start the timer")
         let log = element("cueLog")

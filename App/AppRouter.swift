@@ -14,8 +14,11 @@ final class AppRouter {
     var selectedTab: Tab = .timers
     /// A timer the user asked to start from outside the app. LibraryView starts it and clears this.
     var pendingStart: UUID?
+    /// Last link received, shown to UI tests.
+    private(set) var lastURL = ""
 
     func handle(_ url: URL) {
+        lastURL = url.absoluteString
         guard let link = DeepLink(url: url) else { return }
         switch link {
         case .start(let id): start(id)
