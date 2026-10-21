@@ -218,24 +218,14 @@ final class IntervalTimerUITests: XCTestCase {
         let link = URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!   // "Quick test"
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let phase = element("phaseName")
-        var how = "app.open"
-        app.open(link)
-        var started = phase.waitForExistence(timeout: 8)
+        // Open it through the system, as a widget tap does. (XCUIApplication.open
+        // doesn't deliver custom-scheme links to the app, so it can't be used here.)
+        XCUIDevice.shared.system.open(link)
+        let openButton = springboard.buttons["Open"]
+        if openButton.waitForExistence(timeout: 3) { openButton.tap() }
+        let started = phase.waitForExistence(timeout: 10)
         if !started {
-            // Open it the way the system does for a widget tap, accepting any prompt.
-            how = "system.open"
-            XCUIDevice.shared.system.open(link)
-            let openButton = springboard.buttons["Open"]
-            if openButton.waitForExistence(timeout: 3) { openButton.tap() }
-            started = phase.waitForExistence(timeout: 10)
-        }
-        attach(text: "\(how) started=\(started) \(element("routerLog").label)", named: "a11y-debug-link")
-        if !started {
-            snapshot("debug-after-link")
-            let shot = XCTAttachment(screenshot: springboard.screenshot())
-            shot.name = "debug-springboard-after-link"
-            shot.lifetime = .keepAlways
-            add(shot)
+            attach(text: element("routerLog").label, named: "a11y-debug-link")
         }
         XCTAssertTrue(started, "Link didn't start the timer")
         let log = element("cueLog")
@@ -298,7 +288,7 @@ final class IntervalTimerUITests: XCTestCase {
         do {
             try app.performAccessibilityAudit { issue in
                 let element = issue.element
-                if element?.identifier == "cueLog" { return true }   // invisible test-only element
+                if ["cueLog", "routerLog"].contains(element?.identifier) { return true }   // invisible test-only elements
                 found.append("\(Self.auditName(issue.auditType)) | \(issue.compactDescription) | id=\(element?.identifier ?? "") | label=\(element?.label ?? "")")
                 return true   // collect, don't fail, so every screen gets audited
             }
