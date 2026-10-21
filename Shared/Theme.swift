@@ -99,12 +99,47 @@ enum TimerSummary {
         let total = TimeFormat.clock(plan.totalDuration)
         switch definition {
         case .simple(let config):
+            // Numbers and symbols only, so this reads the same in every language.
             var text = "\(config.rounds) × \(TimeFormat.clock(config.work))"
             if config.rest > 0 { text += " / \(TimeFormat.clock(config.rest))" }
-            if config.cycles > 1 { text += " × \(config.cycles) " + String(localized: "cycles") }
+            if config.cycles > 1 {
+                text = String(localized: "\(text), \(config.cycles) cycles",
+                              comment: "Timer summary: rounds × work / rest, then the number of cycles")
+            }
             return text + " · " + total
         case .custom:
-            return String(localized: "\(plan.workCount) intervals") + " · " + total
+            return String(localized: "\(plan.workCount) intervals", comment: "Number of work intervals in a custom timer") + " · " + total
+        }
+    }
+}
+
+/// Localised names and descriptions for the built-in presets (TimerKit keeps English ids).
+enum PresetText {
+    static func name(_ preset: Preset) -> String {
+        switch preset.id {
+        case "tabata": return String(localized: "Tabata", comment: "Preset name")
+        case "hiit-40-20": return String(localized: "HIIT 40/20", comment: "Preset name")
+        case "emom-10": return String(localized: "EMOM 10", comment: "Preset name: every minute on the minute, 10 minutes")
+        case "boxing": return String(localized: "Boxing rounds", comment: "Preset name")
+        case "mma": return String(localized: "MMA rounds", comment: "Preset name")
+        case "circuit": return String(localized: "Circuit", comment: "Preset name")
+        case "physio": return String(localized: "Physio holds", comment: "Preset name: physiotherapy contract/relax holds")
+        case "pyramid": return String(localized: "Pyramid", comment: "Preset name: intervals that get longer then shorter")
+        default: return preset.name
+        }
+    }
+
+    static func summary(_ preset: Preset) -> String {
+        switch preset.id {
+        case "tabata": return String(localized: "20 s work / 10 s rest × 8", comment: "Preset description")
+        case "hiit-40-20": return String(localized: "40 s work / 20 s rest × 10", comment: "Preset description")
+        case "emom-10": return String(localized: "Every minute on the minute, 10 min", comment: "Preset description")
+        case "boxing": return String(localized: "3 min rounds / 1 min rest × 12", comment: "Preset description")
+        case "mma": return String(localized: "5 min rounds / 1 min rest × 5", comment: "Preset description")
+        case "circuit": return String(localized: "45/15 × 6 stations, 3 cycles, 90 s between", comment: "Preset description")
+        case "physio": return String(localized: "10 s contract / 10 s relax × 6, 5 sets", comment: "Preset description")
+        case "pyramid": return String(localized: "20-30-40-50-40-30-20 s, 15 s rest", comment: "Preset description")
+        default: return preset.summary
         }
     }
 }

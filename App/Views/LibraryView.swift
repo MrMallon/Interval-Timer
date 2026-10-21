@@ -114,7 +114,7 @@ struct LibraryView: View {
     private func openPickedPreset() {
         guard let preset = pickedPreset else { return }
         pickedPreset = nil
-        editorTarget = .new(name: preset.name, definition: preset.definition, color: .red)
+        editorTarget = .new(name: PresetText.name(preset), definition: preset.definition, color: .red)
     }
 
     private func start(_ template: TimerTemplate) {

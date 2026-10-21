@@ -51,7 +51,7 @@ struct WatchHistoryView: View {
                     Text(record.name)
                         .font(.headline)
                         .lineLimit(1)
-                    Text("\(record.startedAt.formatted(date: .abbreviated, time: .shortened)) · \(TimeFormat.clock(Int(record.totalSeconds.rounded())))")
+                    Text(verbatim: "\(record.startedAt.formatted(date: .abbreviated, time: .shortened)) · \(TimeFormat.clock(Int(record.totalSeconds.rounded())))")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
