@@ -236,18 +236,30 @@ final class IntervalTimerUITests: XCTestCase {
         let log = element("cueLog")
         XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
 
-        // Show the Dynamic Island / Live Activity from the Home Screen, mid-interval.
+        // Show the Dynamic Island / Live Activity from the Home Screen, early in a 12 s interval.
         XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
-        sleep(2)
-        attach(text: log.label, named: "a11y-debug-live-activity")
         XCUIDevice.shared.press(.home)
-        sleep(3)
-        let shot = XCTAttachment(screenshot: springboard.screenshot())
-        shot.name = "18-dynamic-island"
-        shot.lifetime = .keepAlways
-        add(shot)
+        sleep(1)
+        springboardShot(springboard, named: "18-dynamic-island-running")
+
+        // Paused: the island shows the frozen time and a pause icon.
         app.activate()
         XCTAssertTrue(phase.waitForExistence(timeout: 10))
+        element("pauseButton").tap()
+        sleep(1)
+        XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 5))
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        springboardShot(springboard, named: "18-dynamic-island-paused")
+        app.activate()
+        XCTAssertTrue(phase.waitForExistence(timeout: 10))
+    }
+
+    private func springboardShot(_ springboard: XCUIApplication, named name: String) {
+        let shot = XCTAttachment(screenshot: springboard.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     // MARK: - Accessibility
@@ -346,11 +358,13 @@ final class IntervalTimerUITests: XCTestCase {
     private func startTimer(_ name: String) {
         let row = element("timer-\(name)")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "No timer named \(name)")
-        row.tap()
-        if !element("phaseName").waitForExistence(timeout: 8), row.isHittable {
-            row.tap()   // a tap during launch can be swallowed; try once more
+        let phase = element("phaseName")
+        // A tap right after launch can be swallowed; retry while still on the list.
+        for _ in 0..<3 where !phase.exists {
+            if row.exists, row.isHittable { row.tap() }
+            _ = phase.waitForExistence(timeout: 8)
         }
-        XCTAssertTrue(element("phaseName").waitForExistence(timeout: 10), "Run screen never opened for \(name)")
+        XCTAssertTrue(phase.exists, "Run screen never opened for \(name)")
     }
 
     private func wait(_ element: XCUIElement, labelContains text: String, timeout: TimeInterval) -> Bool {
