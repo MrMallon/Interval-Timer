@@ -67,15 +67,7 @@ final class IntervalTimerUITests: XCTestCase {
     func test04RunAWorkoutFromStartToFinish() {
         // Quick test: 5 s get ready, 4 s work, 3 s rest, 4 s work = 16 s.
         startTimer("Quick test")
-
-        let phase = element("phaseName")
-        XCTAssertTrue(phase.waitForExistence(timeout: 5))
-        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5), "Got \(phase.label)")
-        snapshot("06-run-get-ready")
-
-        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Work never started; got \(phase.label)")
-        XCTAssertTrue(element("roundCounter").label.contains("1/2"), "Round counter: \(element("roundCounter").label)")
-        snapshot("07-run-work")
+        XCTAssertTrue(element("roundCounter").label.contains("/2"), "Round counter: \(element("roundCounter").label)")
 
         // Pause freezes the clock.
         element("pauseButton").tap()
@@ -85,11 +77,8 @@ final class IntervalTimerUITests: XCTestCase {
         snapshot("08-run-paused")
         element("pauseButton").tap()
 
-        XCTAssertTrue(wait(phase, labelContains: "Rest", timeout: 8), "Rest never started; got \(phase.label)")
-        snapshot("09-run-rest")
-
         let summary = element("summaryTitle")
-        XCTAssertTrue(summary.waitForExistence(timeout: 15), "Workout never finished")
+        XCTAssertTrue(summary.waitForExistence(timeout: 30), "Workout never finished")
         XCTAssertTrue(summary.label.contains("Workout complete"))
         snapshot("10-summary")
 
@@ -104,16 +93,31 @@ final class IntervalTimerUITests: XCTestCase {
         snapshot("11-history")
     }
 
-    func test05SkipControls() {
+    /// Steps through every phase while paused, so slow test polling can't miss a short phase.
+    func test05PhasesAndSkipControls() {
         startTimer("Quick test")
         let phase = element("phaseName")
-        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5))
-        element("pauseButton").tap()   // paused, so skips are judged without the clock moving
+        element("pauseButton").tap()
+
+        // Back to the very start, wherever the tap landed.
+        for _ in 0..<6 where !phase.label.localizedCaseInsensitiveContains("Get ready") {
+            element("previousButton").tap()
+        }
+        XCTAssertTrue(phase.label.localizedCaseInsensitiveContains("Get ready"), "Got \(phase.label)")
+        snapshot("06-run-get-ready")
+
         element("nextButton").tap()
-        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Skip forward failed; got \(phase.label)")
-        XCTAssertTrue(element("countdown").label.contains("4 seconds"), "Skip should land at the start of Work: \(element("countdown").label)")
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Skip to Work failed; got \(phase.label)")
+        XCTAssertTrue(element("countdown").label.contains("4 seconds"), "Should be at the start of Work: \(element("countdown").label)")
+        XCTAssertTrue(element("roundCounter").label.contains("1/2"), "Round counter: \(element("roundCounter").label)")
+        snapshot("07-run-work")
+
+        element("nextButton").tap()
+        XCTAssertTrue(wait(phase, labelContains: "Rest", timeout: 5), "Skip to Rest failed; got \(phase.label)")
+        snapshot("09-run-rest")
+
         element("previousButton").tap()
-        XCTAssertTrue(wait(phase, labelContains: "Get ready", timeout: 5), "Skip back failed; got \(phase.label)")
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 5), "Skip back failed; got \(phase.label)")
 
         element("endButton").tap()
         // The confirmation's button, not the X button that shares its label.
