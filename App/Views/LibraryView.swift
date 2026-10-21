@@ -19,6 +19,7 @@ struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
     @Environment(AppRouter.self) private var router
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: [SortDescriptor(\TimerTemplate.sortOrder), SortDescriptor(\TimerTemplate.createdAt)])
     private var templates: [TimerTemplate]
 
@@ -77,12 +78,17 @@ struct LibraryView: View {
             .onChange(of: templates.count) { _, _ in
                 startPending(router.pendingStart)
             }
+            .onChange(of: scenePhase) { _, _ in
+                startPending(router.pendingStart)
+            }
         }
     }
 
     /// Starts a timer requested by a widget tap, Siri or Shortcuts.
     private func startPending(_ id: UUID?) {
-        guard let id else { return }
+        // Links and Siri often arrive while the app is still coming to the
+        // front; a full-screen cover presented then is silently dropped.
+        guard let id, scenePhase == .active else { return }
         if activeRun != nil {
             router.pendingStart = nil   // already mid-workout: ignore rather than start it later by surprise
             return

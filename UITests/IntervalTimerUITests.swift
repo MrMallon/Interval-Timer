@@ -36,9 +36,13 @@ final class IntervalTimerUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5), "New timer not in the library")
 
         // Edit it: the review complaint was that edits were not kept.
-        row.swipeLeft()
         // The row's swipe action, not the nav bar's Edit (reorder) button.
-        app.collectionViews.buttons["Edit"].tap()
+        let editAction = app.collectionViews.buttons["Edit"]
+        for _ in 0..<3 where !editAction.exists {
+            row.swipeLeft()
+            _ = editAction.waitForExistence(timeout: 2)
+        }
+        editAction.tap()
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         replaceText(in: name, with: "Leg day v2")
         app.buttons["saveButton"].tap()
