@@ -46,8 +46,8 @@ cd Packages/TimerKit && swift test
 | Suite | What it covers | When it runs |
 | --- | --- | --- |
 | `Packages/TimerKit/Tests` (39 tests) | Timer maths, cue timing, stopwatch, presets, iPhone–Watch sync merging | Every push (quick check) |
-| `AppTests` (21 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines | Simulator suite |
-| `UITests` (10 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings, the app in German and Japanese, Apple's accessibility audit on every screen | Simulator suite |
+| `AppTests` (30 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines, widget links, Live Activity contents, Siri "Start Timer" | Simulator suite |
+| `UITests` (11 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings, the app in German and Japanese, Apple's accessibility audit on every screen, a widget link starting a timer with its Live Activity in the Dynamic Island | Simulator suite |
 | Translation check | Every string in the code is in `Shared/Localizable.xcstrings` and translated into all 14 languages | Every push (quick check) |
 
 The quick check (~2 min: engine tests plus iPhone and Watch builds) runs on every push to `main` and every pull request. The simulator suite (~14 min) runs on every pull request, and you can start it by hand from the Actions tab. The repo is public, so GitHub Actions minutes are free.
