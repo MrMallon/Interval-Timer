@@ -18,6 +18,7 @@ enum EditorTarget: Identifiable {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
+    @Environment(AppRouter.self) private var router
     @Query(sort: [SortDescriptor(\TimerTemplate.sortOrder), SortDescriptor(\TimerTemplate.createdAt)])
     private var templates: [TimerTemplate]
 
@@ -70,7 +71,27 @@ struct LibraryView: View {
             .fullScreenCover(item: $activeRun) { session in
                 RunView(session: session)
             }
+            .onChange(of: router.pendingStart, initial: true) { _, id in
+                startPending(id)
+            }
+            .onChange(of: templates.count) { _, _ in
+                startPending(router.pendingStart)
+            }
         }
+    }
+
+    /// Starts a timer requested by a widget tap, Siri or Shortcuts.
+    private func startPending(_ id: UUID?) {
+        guard let id else { return }
+        if activeRun != nil {
+            router.pendingStart = nil   // already mid-workout: ignore rather than start it later by surprise
+            return
+        }
+        guard let template = templates.first(where: { $0.id == id }) else { return }   // may not be loaded yet
+        router.pendingStart = nil
+        editorTarget = nil
+        showingPresets = false
+        start(template)
     }
 
     private var list: some View {

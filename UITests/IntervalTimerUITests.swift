@@ -209,6 +209,31 @@ final class IntervalTimerUITests: XCTestCase {
         }
     }
 
+    // MARK: - Widget links and Live Activity
+
+    /// A widget tap opens intervaltimer://start/<id>: the app must start that timer
+    /// and show it on the Lock Screen / Dynamic Island as a Live Activity.
+    func test11WidgetLinkStartsTimerWithLiveActivity() {
+        XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
+        app.open(URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000001")!)   // "Quick test"
+
+        let phase = element("phaseName")
+        XCTAssertTrue(phase.waitForExistence(timeout: 10), "Link didn't start the timer")
+        let log = element("cueLog")
+        XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
+
+        // Show the Dynamic Island / Live Activity from the Home Screen.
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let shot = XCTAttachment(screenshot: springboard.screenshot())
+        shot.name = "18-dynamic-island"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.activate()
+        XCTAssertTrue(phase.waitForExistence(timeout: 10))
+    }
+
     // MARK: - Accessibility
 
     /// Runs Apple's accessibility audit (contrast, labels, hit areas, Dynamic Type,

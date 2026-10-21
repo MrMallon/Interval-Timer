@@ -69,3 +69,7 @@ build.log
 .DS_Store
 Watch/Info.plist
 Watch/IntervalTimerWatch.entitlements
+Widgets/Info.plist
+App/IntervalTimer.entitlements
+Widgets/IntervalTimerWidgets.entitlements
+__pycache__/

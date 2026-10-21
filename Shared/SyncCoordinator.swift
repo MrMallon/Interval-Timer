@@ -15,6 +15,9 @@ final class SyncCoordinator: NSObject {
     static let shared = SyncCoordinator()
 
     private var container: ModelContainer?
+    /// Called after the library changes here or arrives from the other device
+    /// (the iPhone app refreshes its widget and Siri timer names).
+    var onLibraryChange: (() -> Void)?
     private var session: WCSession? { WCSession.isSupported() ? WCSession.default : nil }
     private let tombstoneKey = "sync.tombstones.v1"
 
@@ -31,6 +34,7 @@ final class SyncCoordinator: NSObject {
 
     /// Call after any local change to the library (save, delete, reorder).
     func libraryChanged() {
+        onLibraryChange?()
         guard let session, session.activationState == .activated, let snapshot = makeSnapshot() else { return }
         #if os(iOS)
         guard session.isPaired, session.isWatchAppInstalled else { return }
@@ -94,6 +98,7 @@ final class SyncCoordinator: NSObject {
             }
         }
         try? context.save()
+        onLibraryChange?()
     }
 
     private func receive(workout payload: [String: Any]) {

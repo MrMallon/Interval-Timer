@@ -73,7 +73,15 @@ jobs:
 
       - name: Check translations
         run: |
-          python3 .github/scripts/check_strings.py build Shared/Localizable.xcstrings --dump keys.json
+          python3 .github/scripts/check_strings.py build \
+            Localizable=Shared/Localizable.xcstrings \
+            AppShortcuts=App/AppShortcuts.xcstrings \
+            --dump keys.json
+
+      - name: Show Siri phrase keys (temporary)
+        if: always()
+        run: |
+          python3 -c "import json; d=json.load(open('keys.json')); print('::notice title=AppShortcuts keys::' + json.dumps(d.get('AppShortcuts', {}), ensure_ascii=False))" || true
 
   simulator-tests:
     if: github.event_name != 'push'
