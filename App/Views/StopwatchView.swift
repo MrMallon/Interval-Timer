@@ -90,6 +90,7 @@ struct StopwatchView: View {
                 laps: laps
             )
             modelContext.insert(record)
+            SyncCoordinator.shared.send(record)
         }
         stopwatch.reset()
         startedAt = nil

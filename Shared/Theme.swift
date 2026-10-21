@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 import TimerKit
 
 /// Colour a user can pick for a saved timer.

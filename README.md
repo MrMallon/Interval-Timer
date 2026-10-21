@@ -1,6 +1,6 @@
 # Interval Timer
 
-A free interval timer for iPhone and iPad (Apple Watch next) for HIIT, Tabata, boxing, EMOM, circuits and physio. Built to match Timer Plus feature for feature and fix what its reviewers complain about.
+A free interval timer for iPhone, iPad and Apple Watch for HIIT, Tabata, boxing, EMOM, circuits and physio. Built to match Timer Plus feature for feature and fix what its reviewers complain about.
 
 **Free forever: no ads, no subscriptions, no in-app purchases, no tracking.** Everything stays on your device.
 
@@ -40,7 +40,7 @@ cd Packages/TimerKit && swift test
 
 | Suite | What it covers | When it runs |
 | --- | --- | --- |
-| `Packages/TimerKit/Tests` (31 tests) | Timer maths, cue timing, stopwatch, presets | Every push (quick check) |
+| `Packages/TimerKit/Tests` (39 tests) | Timer maths, cue timing, stopwatch, presets, iPhone–Watch sync merging | Every push (quick check) |
 | `AppTests` (21 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines | Simulator suite |
 | `UITests` (8 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings | Simulator suite |
 
@@ -54,11 +54,12 @@ Not covered by the simulator: real phone calls, the lock button and other music 
 
 | Path | What it is |
 | --- | --- |
-| `Packages/TimerKit` | Pure Swift package: workout model, timer engine, cue planner, stopwatch, presets. Shared with the future Watch app. Fully unit-tested. |
+| `Packages/TimerKit` | Pure Swift package: workout model, timer engine, cue planner, stopwatch, presets. Shared by the iPhone and Watch apps, plus iPhone–Watch sync merging. Fully unit-tested. |
 | `App/Run` | Run screen, the session that drives a workout, summary, notification fallback |
 | `App/Audio` | Tone synthesiser (no audio files), speech, audio session handling |
 | `App/Views` | Library, editor, presets, history, stopwatch, settings |
-| `App/Models` | SwiftData models and settings |
+| `Shared` | Code used by both apps: SwiftData models, settings, colours, voice lines, iPhone–Watch sync |
+| `Watch` | Apple Watch app: library, editor, run screen with wrist taps and voice, history, settings |
 | `AppTests`, `UITests` | Simulator unit and UI tests |
 | `project.yml` | XcodeGen spec (the `.xcodeproj` is generated, not committed) |
 
@@ -68,8 +69,19 @@ The engine never counts ticks. It stores when the run started and how much time 
 
 While sounds are on, a continuously rendering audio engine keeps the app running on a locked screen. With every sound off the app never touches your audio session, and local notifications mark phase changes instead.
 
+## Apple Watch
+
+The Watch app runs on its own (no iPhone needed) and also syncs with the iPhone:
+
+- Timers made or edited on either device appear on the other; deletions sync too (newest change wins).
+- Workouts finished on the watch show up in the iPhone's History, and the other way round.
+- Cues are wrist taps with their system sounds, plus the same spoken guidance as the iPhone.
+- A HealthKit workout session keeps the timer running with your wrist down. Nothing is written to Health.
+
+To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch or a watch simulator. Signing needs the HealthKit capability, which `project.yml` already declares.
+
 ## Roadmap
 
-1. MVP (this) — iPhone and iPad
-2. Apple Watch app (standalone + synced timers), VoiceOver pass, more languages
+1. MVP — iPhone and iPad (done)
+2. Apple Watch app (this), VoiceOver pass, more languages
 3. Live Activity and Dynamic Island, widgets, Siri shortcuts, Apple Health logging, iCloud sync

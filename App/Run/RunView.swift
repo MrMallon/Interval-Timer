@@ -241,7 +241,9 @@ struct RunView: View {
     private func saveRecordIfNeeded() {
         guard !recordSaved, session.snapshot.elapsed >= 1 else { return }
         recordSaved = true
-        modelContext.insert(session.makeRecord())
+        let record = session.makeRecord()
+        modelContext.insert(record)
+        SyncCoordinator.shared.send(record)
     }
 
     private func close() {

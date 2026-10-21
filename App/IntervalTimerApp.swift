@@ -19,6 +19,7 @@ struct IntervalTimerApp: App {
         } catch {
             fatalError("Could not open the timer database: \(error)")
         }
+        SyncCoordinator.shared.start(container: container)
     }
 
     var body: some Scene {
@@ -52,10 +53,15 @@ struct RootView: View {
     private func seedIfNeeded() {
         guard !didSeedPresets else { return }
         didSeedPresets = true
-        let starters: [(String, ThemeColor)] = [("tabata", .red), ("hiit-40-20", .orange), ("boxing", .blue)]
-        for (offset, starter) in starters.enumerated() {
-            guard let preset = Preset.all.first(where: { $0.id == starter.0 }) else { continue }
-            modelContext.insert(TimerTemplate(name: preset.name, definition: preset.definition, color: starter.1, sortOrder: offset))
+        for (offset, starter) in Preset.starters.enumerated() {
+            guard let preset = Preset.all.first(where: { $0.id == starter.id }) else { continue }
+            modelContext.insert(TimerTemplate(
+                id: Preset.starterTemplateID(starter.id),
+                name: preset.name,
+                definition: preset.definition,
+                color: starter.color,
+                sortOrder: offset
+            ))
         }
         if LaunchEnvironment.isUITesting {
             // Short timers so UI tests finish quickly.
@@ -72,5 +78,7 @@ struct RootView: View {
                 sortOrder: -1
             ))
         }
+        try? modelContext.save()
+        SyncCoordinator.shared.libraryChanged()
     }
 }

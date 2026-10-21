@@ -67,3 +67,5 @@ App/Info.plist
 build/
 build.log
 .DS_Store
+Watch/Info.plist
+Watch/IntervalTimerWatch.entitlements
