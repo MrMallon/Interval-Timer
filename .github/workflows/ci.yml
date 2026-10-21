@@ -75,18 +75,6 @@ jobs:
         run: |
           python3 .github/scripts/check_strings.py build Shared/Localizable.xcstrings --dump keys.json
 
-      - name: Show extracted keys (temporary)
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import json
-          keys = json.load(open("keys.json"))
-          items = [json.dumps([k, c], ensure_ascii=False) for k, c in sorted(keys.items())]
-          for i in range(0, len(items), 45):
-              chunk = "\n".join(items[i:i+45]).replace("%", "%25").replace("\n", "%0A")
-              print(f"::notice title=keys {i}::{chunk}")
-          PY
-
   simulator-tests:
     if: github.event_name != 'push'
     runs-on: macos-15

@@ -23,7 +23,6 @@ struct SummaryView: View {
                     .accessibilityIdentifier("summaryTitle")
                 Text(session.name)
                     .font(.title3)
-                    .opacity(0.85)
             }
             .multilineTextAlignment(.center)
 
@@ -42,7 +41,7 @@ struct SummaryView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 16))
+                        .background(PhaseStyle.controlFill, in: RoundedRectangle(cornerRadius: 16))
                 }
                 .accessibilityIdentifier("repeatButton")
                 Button(action: onDone) {
@@ -75,11 +74,10 @@ private struct StatTile: View {
                 .minimumScaleFactor(0.6)
             Text(title)
                 .font(.subheadline)
-                .opacity(0.8)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 14))
+        .background(PhaseStyle.controlFill, in: RoundedRectangle(cornerRadius: 14))
         .accessibilityElement(children: .combine)
     }
 }

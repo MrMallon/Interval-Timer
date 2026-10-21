@@ -37,7 +37,7 @@ struct WatchRunView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(PhaseStyle.foreground(pale: settings.paleColors))
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { session.start() }
         .onDisappear { session.teardown() }
@@ -76,7 +76,6 @@ struct WatchRunView: View {
             Text(counterText)
                 .font(.footnote.weight(.semibold))
                 .monospacedDigit()
-                .opacity(0.9)
 
             HStack(spacing: 10) {
                 RoundButton(systemImage: "xmark", label: "End workout") { confirmEnd = true }
@@ -118,7 +117,7 @@ struct WatchRunView: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.white.opacity(0.3))
+                .tint(PhaseStyle.controlFill)
             }
             .monospacedDigit()
         }
@@ -147,7 +146,7 @@ private struct RoundButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: large ? 22 : 16, weight: .bold))
                 .frame(width: large ? 52 : 40, height: large ? 52 : 40)
-                .background(.white.opacity(0.22), in: Circle())
+                .background(PhaseStyle.controlFill, in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))

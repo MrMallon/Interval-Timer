@@ -7,6 +7,8 @@ struct StopwatchView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var stopwatch = Stopwatch()
     @State private var startedAt: Date?
+    /// Big digits that still follow the user's text size setting.
+    @ScaledMetric(relativeTo: .largeTitle) private var digitSize: CGFloat = 76
 
     private static func now() -> TimeInterval { Date().timeIntervalSinceReferenceDate }
 
@@ -17,7 +19,7 @@ struct StopwatchView: View {
                     let now = Self.now()
                     VStack(spacing: 8) {
                         Text(TimeFormat.stopwatch(stopwatch.elapsed(at: now)))
-                            .font(.system(size: 76, weight: .semibold, design: .rounded))
+                            .font(.system(size: digitSize, weight: .semibold, design: .rounded))
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
@@ -107,6 +109,9 @@ private struct CircleButton: View {
         Button(action: action) {
             Text(title)
                 .font(.title3.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .padding(.horizontal, 10)
                 .frame(width: 92, height: 92)
                 .foregroundStyle(tint)
                 .background(tint.opacity(0.18), in: Circle())

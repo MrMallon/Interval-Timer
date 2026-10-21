@@ -31,18 +31,38 @@ enum ThemeColor: String, CaseIterable, Identifiable, Codable {
 
 /// Full-screen colours for each phase of the run screen.
 enum PhaseStyle {
+    /// Full-screen phase colour. The normal palette is dark enough for white
+    /// text to pass WCAG AA (4.5:1); the pale palette is light and pairs with
+    /// dark text (see `foreground(pale:)`).
     static func color(for kind: PhaseKind?, pale: Bool) -> Color {
-        let base: Color
-        switch kind {
-        case .prepare: base = Color(red: 0.96, green: 0.62, blue: 0.16)
-        case .work: base = Color(red: 0.88, green: 0.24, blue: 0.27)
-        case .rest: base = Color(red: 0.16, green: 0.62, blue: 0.40)
-        case .cycleRest: base = Color(red: 0.18, green: 0.45, blue: 0.86)
-        case .coolDown: base = Color(red: 0.50, green: 0.36, blue: 0.80)
-        case nil: base = Color(red: 0.20, green: 0.22, blue: 0.26)
+        if pale {
+            switch kind {
+            case .prepare: return Color(red: 250 / 255, green: 211 / 255, blue: 159 / 255)
+            case .work: return Color(red: 241 / 255, green: 168 / 255, blue: 171 / 255)
+            case .rest: return Color(red: 159 / 255, green: 211 / 255, blue: 186 / 255)
+            case .cycleRest: return Color(red: 161 / 255, green: 192 / 255, blue: 239 / 255)
+            case .coolDown: return Color(red: 198 / 255, green: 182 / 255, blue: 232 / 255)
+            case nil: return Color(red: 214 / 255, green: 216 / 255, blue: 220 / 255)
+            }
         }
-        return pale ? base.blended(with: .white, amount: 0.45) : base
+        switch kind {
+        case .prepare: return Color(red: 176 / 255, green: 86 / 255, blue: 0)
+        case .work: return Color(red: 196 / 255, green: 32 / 255, blue: 44 / 255)
+        case .rest: return Color(red: 21 / 255, green: 122 / 255, blue: 72 / 255)
+        case .cycleRest: return Color(red: 28 / 255, green: 92 / 255, blue: 196 / 255)
+        case .coolDown: return Color(red: 110 / 255, green: 72 / 255, blue: 190 / 255)
+        case nil: return Color(red: 51 / 255, green: 56 / 255, blue: 66 / 255)
+        }
     }
+
+    /// Text and icon colour to use on top of `color(for:pale:)`.
+    static func foreground(pale: Bool) -> Color {
+        pale ? Color(red: 26 / 255, green: 26 / 255, blue: 26 / 255) : .white
+    }
+
+    /// Fill for buttons and chips on the phase colour. Darkening (rather than
+    /// lightening) keeps text contrast above the background's own.
+    static let controlFill = Color.black.opacity(0.18)
 
     static func name(for kind: PhaseKind) -> String {
         switch kind {

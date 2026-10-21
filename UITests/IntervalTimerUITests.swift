@@ -239,6 +239,15 @@ final class IntervalTimerUITests: XCTestCase {
             sleep(1)
             audit(tab.lowercased())
         }
+
+        // Our own custom-drawn screens must pass outright. (Standard list and
+        // navigation styling comes from iOS and is reported, not enforced.)
+        for screen in ["run", "summary", "stopwatch"] {
+            let serious = (auditIssues[screen] ?? []).filter {
+                $0.hasPrefix("contrast | Contrast failed") || $0.hasPrefix("textClipped") || $0.hasPrefix("description")
+            }
+            XCTAssertTrue(serious.isEmpty, "\(screen): \(serious.joined(separator: "; "))")
+        }
     }
 
     private func audit(_ screen: String) {
@@ -246,6 +255,7 @@ final class IntervalTimerUITests: XCTestCase {
         do {
             try app.performAccessibilityAudit { issue in
                 let element = issue.element
+                if element?.identifier == "cueLog" { return true }   // invisible test-only element
                 found.append("\(Self.auditName(issue.auditType)) | \(issue.compactDescription) | id=\(element?.identifier ?? "") | label=\(element?.label ?? "")")
                 return true   // collect, don't fail, so every screen gets audited
             }
