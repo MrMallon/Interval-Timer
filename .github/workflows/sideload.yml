@@ -1,0 +1,141 @@
+name: Sideload build
+
+# Builds installable .ipa files for sideloading (Sideloadly / AltStore with a
+# free Apple ID) and publishes them on the "Latest build" release:
+#   https://github.com/<owner>/<repo>/releases/tag/latest
+# Runs after every push to main, or by hand from the Actions tab. Pull requests
+# that touch the build get a test build (no release).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - .github/workflows/sideload.yml
+      - project.yml
+  workflow_dispatch:
+
+concurrency:
+  group: sideload-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # to publish the release
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build for iPhone (unsigned, Release)
+        run: |
+          set +e
+          xcodebuild build \
+            -project IntervalTimer.xcodeproj \
+            -scheme IntervalTimer \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" > build.log 2>&1
+          code=$?
+          grep -E "^/.*: error: " build.log | head -20 | while IFS= read -r line; do echo "::error title=Compiler::$line"; done
+          tail -3 build.log
+          exit $code
+
+      - name: Package .ipa files
+        run: |
+          set -euo pipefail
+          APP=build/Build/Products/Release-iphoneos/IntervalTimer.app
+          test -d "$APP"
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$APP/Info.plist")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
+
+          # Ad-hoc sign inside-out so each part carries its entitlements;
+          # sideloading tools read them when they re-sign with your Apple ID.
+          sign() { codesign --force --sign - --timestamp=none ${2:+--entitlements "$2"} "$1"; }
+
+          mkdir -p dist
+
+          # 1. iPhone + Watch + widget (everything).
+          rm -rf full && mkdir -p full/Payload && cp -R "$APP" full/Payload/
+          F=full/Payload/IntervalTimer.app
+          if [ -d "$F/Watch/IntervalTimerWatch.app" ]; then sign "$F/Watch/IntervalTimerWatch.app" Watch/IntervalTimerWatch.entitlements; fi
+          sign "$F/PlugIns/IntervalTimerWidgets.appex" Widgets/IntervalTimerWidgets.entitlements
+          sign "$F" App/IntervalTimer.entitlements
+          (cd full && zip -qry "../dist/IntervalTimer-with-Watch.ipa" Payload)
+
+          # 2. iPhone + widget, no Watch app. Best for a free Apple ID:
+          #    fewer app IDs, and free accounts often can't install Watch apps.
+          rm -rf lite && mkdir -p lite/Payload && cp -R "$APP" lite/Payload/
+          L=lite/Payload/IntervalTimer.app
+          rm -rf "$L/Watch"
+          sign "$L/PlugIns/IntervalTimerWidgets.appex" Widgets/IntervalTimerWidgets.entitlements
+          sign "$L" App/IntervalTimer.entitlements
+          (cd lite && zip -qry "../dist/IntervalTimer.ipa" Payload)
+
+          ls -lh dist
+          codesign -d --entitlements :- "$L" 2>/dev/null | head -20 || true
+
+      - name: Check the .ipa files
+        run: |
+          set -euo pipefail
+          for ipa in dist/*.ipa; do
+            rm -rf check && mkdir check && unzip -q "$ipa" -d check
+            APP=check/Payload/IntervalTimer.app
+            info() { /usr/libexec/PlistBuddy -c "Print $1" "$2" 2>/dev/null || echo "-"; }
+            ents() { codesign -d --entitlements :- "$1" 2>/dev/null | plutil -convert json -o - - 2>/dev/null || echo "{}"; }
+            parts="app=$(info CFBundleIdentifier $APP/Info.plist) v$(info CFBundleShortVersionString $APP/Info.plist)($(info CFBundleVersion $APP/Info.plist)) minOS=$(info MinimumOSVersion $APP/Info.plist) arch=$(lipo -archs $APP/IntervalTimer)"
+            parts="$parts | widget=$(info CFBundleIdentifier $APP/PlugIns/IntervalTimerWidgets.appex/Info.plist)"
+            if [ -d "$APP/Watch" ]; then parts="$parts | watch=$(info CFBundleIdentifier $APP/Watch/IntervalTimerWatch.app/Info.plist) arch=$(lipo -archs $APP/Watch/IntervalTimerWatch.app/IntervalTimerWatch)"; else parts="$parts | no watch app"; fi
+            parts="$parts | app entitlements=$(ents $APP) | widget entitlements=$(ents $APP/PlugIns/IntervalTimerWidgets.appex)"
+            parts="$parts | size=$(du -h "$ipa" | cut -f1) | liveActivities=$(info NSSupportsLiveActivities $APP/Info.plist) bgModes=$(info UIBackgroundModes:0 $APP/Info.plist)"
+            echo "::notice title=$(basename "$ipa")::$parts"
+            codesign --verify --deep --strict "$APP" && echo "signature ok"
+          done
+
+      - name: Keep the .ipa files from a pull request build
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-test-build
+          path: dist/*.ipa
+
+      - name: Publish "Latest build" release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NOTES="Built from ${GITHUB_SHA::7} on $(date -u '+%Y-%m-%d %H:%M UTC'). Version $VERSION ($BUILD).
+
+          **Which file?**
+          - \`IntervalTimer.ipa\`: iPhone app + Home Screen widget. Use this with a free Apple ID.
+          - \`IntervalTimer-with-Watch.ipa\`: also includes the Apple Watch app. Needs a paid Apple Developer account in most sideloading tools.
+
+          How to install from Windows: see [SIDELOADING.md](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/main/SIDELOADING.md)."
+          gh release delete latest --cleanup-tag --yes 2>/dev/null || true
+          gh release create latest dist/*.ipa \
+            --title "Latest build ($VERSION, build $BUILD)" \
+            --notes "$NOTES" \
+            --prerelease \
+            --target "$GITHUB_SHA"
+          echo "::notice title=Download::${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/latest"
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sideload-build-log
+          path: build.log

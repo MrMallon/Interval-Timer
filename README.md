@@ -23,6 +23,10 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Quick start widget for the Home Screen: tap a timer to start it
 - Siri and Shortcuts: "Start Tabata in Interval Timer"
 
+## Try it on your iPhone (no Mac needed)
+
+Every change to `main` builds a fresh installable app on the [Latest build](../../releases/tag/latest) release. Install it from a Windows PC with a free Apple ID using Sideloadly: see **[SIDELOADING.md](SIDELOADING.md)**.
+
 ## Build and run
 
 You need a Mac with Xcode 16 or later.
