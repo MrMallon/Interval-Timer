@@ -206,6 +206,7 @@ final class IntervalTimerUITests: XCTestCase {
 
             startTimer("Quick test")
             element("pauseButton").tap()
+            goToStart()
             element("nextButton").tap()
             let phase = element("phaseName")
             XCTAssertTrue(wait(phase, labelContains: workTitle, timeout: 5), "\(code): got \(phase.label)")
@@ -366,7 +367,19 @@ final class IntervalTimerUITests: XCTestCase {
             if row.exists, row.isHittable { row.tap() }
             _ = phase.waitForExistence(timeout: 8)
         }
+        if !phase.exists {
+            snapshot("debug-start-\(name)")
+        }
         XCTAssertTrue(phase.exists, "Run screen never opened for \(name)")
+    }
+
+    /// While paused, steps back to the first interval whatever the language.
+    /// Each tap goes back one interval (or restarts the current one), and
+    /// tapping on the first interval is harmless, so five taps always reach it.
+    private func goToStart() {
+        for _ in 0..<5 {
+            element("previousButton").tap()
+        }
     }
 
     private func wait(_ element: XCUIElement, labelContains text: String, timeout: TimeInterval) -> Bool {
