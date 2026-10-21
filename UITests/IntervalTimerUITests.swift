@@ -241,7 +241,7 @@ final class IntervalTimerUITests: XCTestCase {
         // Show the Dynamic Island / Live Activity from the Home Screen, early in a 12 s interval.
         XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
         XCUIDevice.shared.press(.home)
-        sleep(1)
+        sleep(2)   // let the island finish animating in
         springboardShot(springboard, named: "18-dynamic-island-running")
 
         // Paused: the island shows the frozen time and a pause icon.
