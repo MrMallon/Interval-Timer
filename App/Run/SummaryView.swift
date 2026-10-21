@@ -7,11 +7,22 @@ struct SummaryView: View {
     let onDone: () -> Void
     let onRepeat: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var completed: Bool { session.isFinished && !session.endedEarly }
 
     var body: some View {
+        // Scrolls at very large text sizes instead of clipping.
+        ScrollView {
+            content
+                .frame(maxWidth: .infinity)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    private var content: some View {
         VStack(spacing: 28) {
-            Spacer()
+            Spacer(minLength: 40)
             Image(systemName: completed ? "checkmark.seal.fill" : "flag.checkered")
                 .font(.system(size: 72))
                 .symbolRenderingMode(.hierarchical)
@@ -26,14 +37,18 @@ struct SummaryView: View {
             }
             .multilineTextAlignment(.center)
 
-            HStack(spacing: 14) {
+            // Side by side normally; stacked when the user picks an accessibility text size.
+            let tiles = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 10))
+                : AnyLayout(HStackLayout(spacing: 14))
+            tiles {
                 StatTile(title: "Total", value: TimeFormat.clock(Int(session.snapshot.elapsed.rounded())))
                 StatTile(title: "Working", value: TimeFormat.clock(Int(session.workSecondsDone.rounded())))
                 StatTile(title: "Rounds", value: "\(session.roundsCompleted)/\(session.plan.workCount)")
             }
             .padding(.horizontal)
 
-            Spacer()
+            Spacer(minLength: 24)
 
             VStack(spacing: 12) {
                 Button(action: onRepeat) {
@@ -74,7 +89,11 @@ private struct StatTile: View {
                 .minimumScaleFactor(0.6)
             Text(title)
                 .font(.subheadline)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+                .multilineTextAlignment(.center)
         }
+        .padding(.horizontal, 6)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(PhaseStyle.controlFill, in: RoundedRectangle(cornerRadius: 14))
