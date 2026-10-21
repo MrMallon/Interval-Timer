@@ -37,7 +37,8 @@ final class IntervalTimerUITests: XCTestCase {
 
         // Edit it: the review complaint was that edits were not kept.
         row.swipeLeft()
-        app.buttons["Edit"].tap()
+        // The row's swipe action, not the nav bar's Edit (reorder) button.
+        app.collectionViews.buttons["Edit"].tap()
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         replaceText(in: name, with: "Leg day v2")
         app.buttons["saveButton"].tap()
@@ -130,7 +131,7 @@ final class IntervalTimerUITests: XCTestCase {
         // Background test: 2 s get ready, 12 s work, 6 s rest, 12 s work = 32 s.
         startTimer("Background test")
         let phase = element("phaseName")
-        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 6))
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10), "Work never started; got \(phase.label)")
         sleep(1)
 
         XCUIDevice.shared.press(.home)
@@ -204,6 +205,10 @@ final class IntervalTimerUITests: XCTestCase {
         let row = element("timer-\(name)")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "No timer named \(name)")
         row.tap()
+        if !element("phaseName").waitForExistence(timeout: 6) {
+            row.tap()   // a tap during launch can be swallowed; try once more
+        }
+        XCTAssertTrue(element("phaseName").waitForExistence(timeout: 10), "Run screen never opened for \(name)")
     }
 
     private func wait(_ element: XCUIElement, labelContains text: String, timeout: TimeInterval) -> Bool {

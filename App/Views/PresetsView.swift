@@ -27,6 +27,7 @@ struct PresetsView: View {
                     .padding(.vertical, 4)
                 }
             }
+            .tint(.primary)
             .navigationTitle("Presets")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
