@@ -36,9 +36,13 @@ final class IntervalTimerUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5), "New timer not in the library")
 
         // Edit it: the review complaint was that edits were not kept.
-        row.swipeLeft()
         // The row's swipe action, not the nav bar's Edit (reorder) button.
-        app.collectionViews.buttons["Edit"].tap()
+        let editAction = app.collectionViews.buttons["Edit"]
+        for _ in 0..<3 where !editAction.exists {
+            row.swipeLeft()
+            _ = editAction.waitForExistence(timeout: 2)
+        }
+        editAction.tap()
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         replaceText(in: name, with: "Leg day v2")
         app.buttons["saveButton"].tap()
@@ -202,11 +206,63 @@ final class IntervalTimerUITests: XCTestCase {
 
             startTimer("Quick test")
             element("pauseButton").tap()
+            goToStart()
             element("nextButton").tap()
             let phase = element("phaseName")
             XCTAssertTrue(wait(phase, labelContains: workTitle, timeout: 5), "\(code): got \(phase.label)")
             snapshot("17-\(code)-run")
         }
+    }
+
+    // MARK: - Widget links and Live Activity
+
+    /// A widget tap opens intervaltimer://start/<id>: the app must start that timer
+    /// and show it on the Lock Screen / Dynamic Island as a Live Activity.
+    func test11WidgetLinkStartsTimerWithLiveActivity() {
+        XCTAssertTrue(element("timer-Tabata").waitForExistence(timeout: 15))
+        // "Background test": 12 s intervals, so the Dynamic Island screenshot shows a live countdown.
+        let link = URL(string: "intervaltimer://start/7E570000-0000-4000-8000-000000000002")!
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let phase = element("phaseName")
+        // Open it through the system, as a widget tap does. (XCUIApplication.open
+        // doesn't deliver custom-scheme links to the app, so it can't be used here.)
+        XCUIDevice.shared.system.open(link)
+        let openButton = springboard.buttons["Open"]
+        if openButton.waitForExistence(timeout: 3) { openButton.tap() }
+        let started = phase.waitForExistence(timeout: 10)
+        if !started {
+            attach(text: element("routerLog").label, named: "a11y-debug-link")
+        }
+        XCTAssertTrue(started, "Link didn't start the timer")
+        let log = element("cueLog")
+        XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
+        // Leftovers from earlier tests' workouts must have been cleared at launch.
+        XCTAssertTrue(wait(log, labelContains: "laCount=1", timeout: 5), "Stale Live Activities remain: \(log.label)")
+
+        // Show the Dynamic Island / Live Activity from the Home Screen, early in a 12 s interval.
+        XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
+        XCUIDevice.shared.press(.home)
+        sleep(2)   // let the island finish animating in
+        springboardShot(springboard, named: "18-dynamic-island-running")
+
+        // Paused: the island shows the frozen time and a pause icon.
+        app.activate()
+        XCTAssertTrue(phase.waitForExistence(timeout: 10))
+        element("pauseButton").tap()
+        sleep(1)
+        XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 5))
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        springboardShot(springboard, named: "18-dynamic-island-paused")
+        app.activate()
+        XCTAssertTrue(phase.waitForExistence(timeout: 10))
+    }
+
+    private func springboardShot(_ springboard: XCUIApplication, named name: String) {
+        let shot = XCTAttachment(screenshot: springboard.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     // MARK: - Accessibility
@@ -255,7 +311,7 @@ final class IntervalTimerUITests: XCTestCase {
         do {
             try app.performAccessibilityAudit { issue in
                 let element = issue.element
-                if element?.identifier == "cueLog" { return true }   // invisible test-only element
+                if ["cueLog", "routerLog"].contains(element?.identifier) { return true }   // invisible test-only elements
                 found.append("\(Self.auditName(issue.auditType)) | \(issue.compactDescription) | id=\(element?.identifier ?? "") | label=\(element?.label ?? "")")
                 return true   // collect, don't fail, so every screen gets audited
             }
@@ -305,11 +361,25 @@ final class IntervalTimerUITests: XCTestCase {
     private func startTimer(_ name: String) {
         let row = element("timer-\(name)")
         XCTAssertTrue(row.waitForExistence(timeout: 15), "No timer named \(name)")
-        row.tap()
-        if !element("phaseName").waitForExistence(timeout: 8), row.isHittable {
-            row.tap()   // a tap during launch can be swallowed; try once more
+        let phase = element("phaseName")
+        // A tap right after launch can be swallowed; retry while still on the list.
+        for _ in 0..<3 where !phase.exists {
+            if row.exists, row.isHittable { row.tap() }
+            _ = phase.waitForExistence(timeout: 8)
         }
-        XCTAssertTrue(element("phaseName").waitForExistence(timeout: 10), "Run screen never opened for \(name)")
+        if !phase.exists {
+            snapshot("debug-start-\(name)")
+        }
+        XCTAssertTrue(phase.exists, "Run screen never opened for \(name)")
+    }
+
+    /// While paused, steps back to the first interval whatever the language.
+    /// Each tap goes back one interval (or restarts the current one), and
+    /// tapping on the first interval is harmless, so five taps always reach it.
+    private func goToStart() {
+        for _ in 0..<5 {
+            element("previousButton").tap()
+        }
     }
 
     private func wait(_ element: XCUIElement, labelContains text: String, timeout: TimeInterval) -> Bool {

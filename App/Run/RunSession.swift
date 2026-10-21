@@ -42,6 +42,8 @@ final class RunSession: Identifiable {
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let audio = AudioCuePlayer()
     @ObservationIgnored private let haptics = Haptics()
+    @ObservationIgnored private let liveActivity = LiveActivityController()
+    @ObservationIgnored private var lastDebugTick = 0
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var pausedByInterruption = false
 
@@ -85,6 +87,7 @@ final class RunSession: Identifiable {
         engine.start(at: now)
         haptics.prepare()
         process(at: now)
+        liveActivity.start(name: name, color: color, state: activityState())
         startLoop()
         updateIdleTimer()
     }
@@ -132,6 +135,7 @@ final class RunSession: Identifiable {
     func teardown() {
         loop?.cancel()
         loop = nil
+        liveActivity.end(nil, finished: false)
         audio.deactivate()
         NotificationFallback.cancelAll()
         UIApplication.shared.isIdleTimerDisabled = false
@@ -177,6 +181,17 @@ final class RunSession: Identifiable {
             for cue in due {
                 perform(cue.event)
                 record(cue, firedAt: elapsedNow)
+            }
+        }
+        if LaunchEnvironment.isUITesting, Int(now * 2) != lastDebugTick {
+            lastDebugTick = Int(now * 2)
+            refreshDebugSummary()
+        }
+        if liveActivity.isActive {
+            if justFinished {
+                liveActivity.end(activityState(), finished: true)
+            } else {
+                liveActivity.update(activityState())
             }
         }
         if justFinished {
@@ -231,12 +246,29 @@ final class RunSession: Identifiable {
         }
     }
 
+    /// What the Lock Screen / Dynamic Island should show right now.
+    private func activityState() -> WorkoutActivityAttributes.ContentState {
+        .make(snapshot: snapshot, plan: plan, now: Date()) { PhaseStyle.name(for: $0) }
+    }
+
+    /// True while the Live Activity is showing, for tests.
+    var isLiveActivityActive: Bool { liveActivity.isActive }
+
     private func record(_ cue: ScheduledCue, firedAt: TimeInterval) {
         let background = UIApplication.shared.applicationState == .background
         cueRecords.append(CueRecord(event: cue.event, scheduledAt: cue.time, firedAt: firedAt, inBackground: background))
         if LaunchEnvironment.isUITesting {
-            debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
+            refreshDebugSummary()
         }
+    }
+
+    private func refreshDebugSummary() {
+        debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
+            + " la=\(liveActivity.isActive ? 1 : 0)"
+            + " laCount=\(LiveActivityController.systemActivityCount)"
+            + " laEnd=\(String(format: "%.1f", liveActivity.systemSecondsToPhaseEnd ?? -99))"
+            + " laPhase=\(liveActivity.systemPhaseName ?? "-")"
+            + " appRemain=\(String(format: "%.1f", snapshot.remainingInSegment))"
     }
 
     static func summarize(_ records: [CueRecord], audioRunning: Bool) -> String {

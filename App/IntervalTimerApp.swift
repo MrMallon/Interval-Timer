@@ -13,12 +13,9 @@ struct IntervalTimerApp: App {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
         }
         _settings = State(initialValue: SettingsStore())
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: LaunchEnvironment.usesInMemoryStore)
-        do {
-            container = try ModelContainer(for: TimerTemplate.self, WorkoutRecord.self, configurations: configuration)
-        } catch {
-            fatalError("Could not open the timer database: \(error)")
-        }
+        container = AppPersistence.container
+        SyncCoordinator.shared.onLibraryChange = { AppPersistence.refreshExternalViews() }
+        LiveActivityController.endLeftovers()
         SyncCoordinator.shared.start(container: container)
     }
 
@@ -26,6 +23,8 @@ struct IntervalTimerApp: App {
         WindowGroup {
             RootView()
                 .environment(settings)
+                .environment(AppRouter.shared)
+                .onOpenURL { AppRouter.shared.handle($0) }
         }
         .modelContainer(container)
     }
@@ -33,20 +32,38 @@ struct IntervalTimerApp: App {
 
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppRouter.self) private var router
     @AppStorage("didSeedPresets") private var didSeedPresets = false
 
     var body: some View {
-        TabView {
+        @Bindable var router = router
+        TabView(selection: $router.selectedTab) {
             LibraryView()
                 .tabItem { Label("Timers", systemImage: "timer") }
+                .tag(AppRouter.Tab.timers)
             StopwatchView()
                 .tabItem { Label("Stopwatch", systemImage: "stopwatch") }
+                .tag(AppRouter.Tab.stopwatch)
             HistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+                .tag(AppRouter.Tab.history)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(AppRouter.Tab.settings)
         }
-        .onAppear(perform: seedIfNeeded)
+        .onAppear {
+            seedIfNeeded()
+            AppPersistence.refreshExternalViews()
+        }
+        .overlay(alignment: .bottom) {
+            if LaunchEnvironment.isUITesting {
+                Text(verbatim: "url=\(router.lastURL) pending=\(router.pendingStart?.uuidString ?? "-")")
+                    .font(.system(size: 2))
+                    .opacity(0.02)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("routerLog")
+            }
+        }
     }
 
     /// First launch: give the library a few useful timers to start from.
@@ -66,12 +83,14 @@ struct RootView: View {
         if LaunchEnvironment.isUITesting {
             // Short timers so UI tests finish quickly.
             modelContext.insert(TimerTemplate(
+                id: UUID(uuidString: "7E570000-0000-4000-8000-000000000001")!,
                 name: "Quick test",
                 definition: .simple(SimpleConfig(prepare: 5, work: 4, rest: 3, rounds: 2, cycles: 1, restBetweenCycles: 0, coolDown: 0)),
                 color: .green,
                 sortOrder: -2
             ))
             modelContext.insert(TimerTemplate(
+                id: UUID(uuidString: "7E570000-0000-4000-8000-000000000002")!,
                 name: "Background test",
                 definition: .simple(SimpleConfig(prepare: 2, work: 12, rest: 6, rounds: 2, cycles: 1, restBetweenCycles: 0, coolDown: 0)),
                 color: .purple,

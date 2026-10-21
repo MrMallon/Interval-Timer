@@ -19,6 +19,9 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Interval stopwatch with laps
 - History with weekly totals and "start again"
 - Pale colours mode, keep-screen-on, haptics
+- Live Activity: the countdown, phase and round on the Lock Screen and in the Dynamic Island
+- Quick start widget for the Home Screen: tap a timer to start it
+- Siri and Shortcuts: "Start Tabata in Interval Timer"
 
 ## Build and run
 
@@ -43,8 +46,8 @@ cd Packages/TimerKit && swift test
 | Suite | What it covers | When it runs |
 | --- | --- | --- |
 | `Packages/TimerKit/Tests` (39 tests) | Timer maths, cue timing, stopwatch, presets, iPhone–Watch sync merging | Every push (quick check) |
-| `AppTests` (21 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines | Simulator suite |
-| `UITests` (10 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings, the app in German and Japanese, Apple's accessibility audit on every screen | Simulator suite |
+| `AppTests` (30 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines, widget links, Live Activity contents, Siri "Start Timer" | Simulator suite |
+| `UITests` (11 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings, the app in German and Japanese, Apple's accessibility audit on every screen, a widget link starting a timer with its Live Activity in the Dynamic Island | Simulator suite |
 | Translation check | Every string in the code is in `Shared/Localizable.xcstrings` and translated into all 14 languages | Every push (quick check) |
 
 The quick check (~2 min: engine tests plus iPhone and Watch builds) runs on every push to `main` and every pull request. The simulator suite (~14 min) runs on every pull request, and you can start it by hand from the Actions tab. The repo is public, so GitHub Actions minutes are free.
@@ -63,6 +66,9 @@ Not covered by the simulator: real phone calls, the lock button and other music 
 | `App/Views` | Library, editor, presets, history, stopwatch, settings |
 | `Shared` | Code used by both apps: SwiftData models, settings, colours, voice lines, iPhone–Watch sync |
 | `Watch` | Apple Watch app: library, editor, run screen with wrist taps and voice, history, settings |
+| `Widgets` | Widget extension: Quick start Home Screen widget and the workout Live Activity / Dynamic Island |
+| `SharedIOS` | Code shared by the iPhone app and its widget: Live Activity data, widget timer list, `intervaltimer://` links |
+| `App/Intents` | Siri and Shortcuts: "Start Timer" with your saved timers |
 | `AppTests`, `UITests` | Simulator unit and UI tests |
 | `project.yml` | XcodeGen spec (the `.xcodeproj` is generated, not committed) |
 
@@ -97,6 +103,7 @@ To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch o
 
 1. MVP — iPhone and iPad (done)
 2. Apple Watch app, accessibility pass, 15 languages (done)
-3. Live Activity and Dynamic Island, widgets, Siri shortcuts, optional Apple Health logging
+3. Live Activity and Dynamic Island, Quick start widget, Siri shortcuts (done)
+4. Optional Apple Health logging
 
 No cloud sync is planned: everything stays on your devices.
