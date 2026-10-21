@@ -50,6 +50,8 @@ def is_translated(entry, lang):
     loc = entry.get("localizations", {}).get(lang)
     if not loc:
         return False
+    if "stringSet" in loc:   # App Shortcuts phrases: several phrasings per language
+        return loc["stringSet"].get("state") == "translated" and len(loc["stringSet"].get("values", [])) > 0
     if "stringUnit" in loc:
         return loc["stringUnit"].get("state") == "translated" and loc["stringUnit"].get("value", "") != ""
     if "variations" in loc:

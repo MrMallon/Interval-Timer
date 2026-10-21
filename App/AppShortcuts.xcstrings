@@ -1,0 +1,161 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "Start ${timer} in ${applicationName}": {
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Starte ${timer} in ${applicationName}",
+              "Starte meinen ${timer}-Timer in ${applicationName}",
+              "Starte einen Timer in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Start ${timer} in ${applicationName}",
+              "Start my ${timer} timer in ${applicationName}",
+              "Start a timer in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Inicia ${timer} en ${applicationName}",
+              "Inicia mi temporizador ${timer} en ${applicationName}",
+              "Inicia un temporizador en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Lance ${timer} dans ${applicationName}",
+              "Démarre mon minuteur ${timer} dans ${applicationName}",
+              "Lance un minuteur dans ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Avvia ${timer} in ${applicationName}",
+              "Avvia il mio timer ${timer} in ${applicationName}",
+              "Avvia un timer in ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で${timer}を開始",
+              "${applicationName}で${timer}タイマーを開始",
+              "${applicationName}でタイマーを開始"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 ${timer} 시작",
+              "${applicationName}에서 내 ${timer} 타이머 시작",
+              "${applicationName}에서 타이머 시작"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Start ${timer} in ${applicationName}",
+              "Start mijn ${timer}-timer in ${applicationName}",
+              "Start een timer in ${applicationName}"
+            ]
+          }
+        },
+        "pt-BR": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Iniciar ${timer} no ${applicationName}",
+              "Iniciar meu timer ${timer} no ${applicationName}",
+              "Iniciar um timer no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Запусти ${timer} в ${applicationName}",
+              "Запусти мой таймер ${timer} в ${applicationName}",
+              "Запусти таймер в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Starta ${timer} i ${applicationName}",
+              "Starta min ${timer}-timer i ${applicationName}",
+              "Starta en timer i ${applicationName}"
+            ]
+          }
+        },
+        "th": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "เริ่ม ${timer} ใน ${applicationName}",
+              "เริ่มตัวจับเวลา ${timer} ของฉันใน ${applicationName}",
+              "เริ่มตัวจับเวลาใน ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} ile ${timer} başlat",
+              "${applicationName} ile ${timer} zamanlayıcımı başlat",
+              "${applicationName} ile zamanlayıcı başlat"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中开始${timer}",
+              "在${applicationName}中开始我的${timer}计时器",
+              "在${applicationName}中开始计时器"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中開始${timer}",
+              "在${applicationName}中開始我的${timer}計時器",
+              "在${applicationName}中開始計時器"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
