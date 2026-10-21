@@ -79,15 +79,17 @@ jobs:
       - name: Run app tests in the simulator
         id: test
         run: |
-          set -o pipefail
+          set +e
           xcodebuild test-without-building \
             -project IntervalTimer.xcodeproj \
             -scheme IntervalTimer \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build \
             -resultBundlePath TestResults.xcresult \
-            | tee test-app.log | grep -E "Test (Case|Suite).*(passed|failed)|\*\* TEST" || true
-          grep -q "\*\* TEST SUCCEEDED \*\*" test-app.log
+            > test-app.log 2>&1
+          code=$?
+          grep -E "Test (Case|Suite).*(passed|failed)|\*\* TEST" test-app.log
+          exit $code
 
       - name: Report results and export screenshots
         if: always() && hashFiles('TestResults.xcresult/Info.plist') != ''
