@@ -238,6 +238,8 @@ final class IntervalTimerUITests: XCTestCase {
 
         // Show the Dynamic Island / Live Activity from the Home Screen, mid-interval.
         XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
+        sleep(2)
+        attach(text: log.label, named: "a11y-debug-live-activity")
         XCUIDevice.shared.press(.home)
         sleep(3)
         let shot = XCTAttachment(screenshot: springboard.screenshot())

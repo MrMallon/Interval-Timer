@@ -12,6 +12,14 @@ final class LiveActivityController {
 
     var isActive: Bool { activity != nil }
 
+    /// Seconds from now to the phase end the system currently holds, for tests.
+    var systemSecondsToPhaseEnd: Double? {
+        activity?.content.state.phaseEnd.timeIntervalSinceNow
+    }
+
+    /// Phase name the system currently holds, for tests.
+    var systemPhaseName: String? { activity?.content.state.phaseName }
+
     func start(name: String, color: ThemeColor, state: WorkoutActivityAttributes.ContentState) {
         guard activity == nil, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = WorkoutActivityAttributes(timerName: name, colorName: color.rawValue)

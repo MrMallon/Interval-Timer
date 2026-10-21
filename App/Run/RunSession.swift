@@ -255,6 +255,9 @@ final class RunSession: Identifiable {
         if LaunchEnvironment.isUITesting {
             debugSummary = Self.summarize(cueRecords, audioRunning: audio.isEngineRunning)
                 + " la=\(liveActivity.isActive ? 1 : 0)"
+                + " laEnd=\(String(format: "%.1f", liveActivity.systemSecondsToPhaseEnd ?? -99))"
+                + " laPhase=\(liveActivity.systemPhaseName ?? "-")"
+                + " appRemain=\(String(format: "%.1f", snapshot.remainingInSegment))"
         }
     }
 
