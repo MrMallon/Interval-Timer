@@ -15,6 +15,7 @@ struct IntervalTimerApp: App {
         _settings = State(initialValue: SettingsStore())
         container = AppPersistence.container
         SyncCoordinator.shared.onLibraryChange = { AppPersistence.refreshExternalViews() }
+        LiveActivityController.endLeftovers()
         SyncCoordinator.shared.start(container: container)
     }
 

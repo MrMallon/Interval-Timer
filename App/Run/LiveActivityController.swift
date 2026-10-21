@@ -20,6 +20,22 @@ final class LiveActivityController {
     /// Phase name the system currently holds, for tests.
     var systemPhaseName: String? { activity?.content.state.phaseName }
 
+    /// Ends Live Activities left behind when the app was quit or crashed mid-workout,
+    /// so a dead countdown doesn't stay on the Lock Screen. Call at launch, before
+    /// any workout starts (the list is taken now, so new activities are untouched).
+    static func endLeftovers() {
+        let leftovers = Activity<WorkoutActivityAttributes>.activities
+        guard !leftovers.isEmpty else { return }
+        Task {
+            for activity in leftovers {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+    }
+
+    /// Number of workout Live Activities the system has, for tests.
+    static var systemActivityCount: Int { Activity<WorkoutActivityAttributes>.activities.count }
+
     func start(name: String, color: ThemeColor, state: WorkoutActivityAttributes.ContentState) {
         guard activity == nil, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let attributes = WorkoutActivityAttributes(timerName: name, colorName: color.rawValue)

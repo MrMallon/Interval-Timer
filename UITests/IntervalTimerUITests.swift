@@ -235,6 +235,8 @@ final class IntervalTimerUITests: XCTestCase {
         XCTAssertTrue(started, "Link didn't start the timer")
         let log = element("cueLog")
         XCTAssertTrue(wait(log, labelContains: "la=1", timeout: 10), "Live Activity not running: \(log.label)")
+        // Leftovers from earlier tests' workouts must have been cleared at launch.
+        XCTAssertTrue(wait(log, labelContains: "laCount=1", timeout: 5), "Stale Live Activities remain: \(log.label)")
 
         // Show the Dynamic Island / Live Activity from the Home Screen, early in a 12 s interval.
         XCTAssertTrue(wait(phase, labelContains: "Work", timeout: 10))
