@@ -1,0 +1,7 @@
+contrast | Contrast nearly passed | id= | label=
+contrast | Contrast nearly passed | id= | label=
+contrast | Contrast failed | id= | label=
+contrast | Contrast nearly passed | id= | label=
+contrast | Contrast failed | id= | label=
+contrast | Contrast failed | id= | label=
+contrast | Contrast failed | id= | label=

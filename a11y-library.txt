@@ -1,0 +1,7 @@
+dynamicType | Dynamic Type font sizes are partially unsupported | id= | label=Edit
+contrast | Contrast nearly passed | id= | label=Edit
+contrast | Contrast nearly passed | id= | label=2 × 0:04 / 0:03 · 0:16
+contrast | Contrast nearly passed | id= | label=2 × 0:12 / 0:06 · 0:32
+contrast | Contrast nearly passed | id= | label=8 × 0:20 / 0:10 · 4:00
+contrast | Contrast nearly passed | id= | label=10 × 0:40 / 0:20 · 10:50
+contrast | Contrast nearly passed | id= | label=12 × 3:00 / 1:00 · 47:10

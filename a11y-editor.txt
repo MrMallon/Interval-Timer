@@ -1,0 +1,13 @@
+dynamicType | Dynamic Type font sizes are partially unsupported | id= | label=A cycle is one full set of rounds. Repeat it with a longer rest in between.
+dynamicType | Dynamic Type font sizes are partially unsupported | id= | label=Cancel
+dynamicType | Dynamic Type font sizes are partially unsupported | id=saveButton | label=Save
+contrast | Contrast nearly passed | id= | label=Cancel
+contrast | Contrast nearly passed | id=saveButton | label=Save
+contrast | Contrast nearly passed | id= | label=Same work and rest every round.
+contrast | Contrast nearly passed | id= | label=
+contrast | Contrast failed | id= | label=
+contrast | Contrast nearly passed | id= | label=A cycle is one full set of rounds. Repeat it with a longer rest in between.
+contrast | Contrast nearly passed | id= | label=
+contrast | Contrast nearly passed | id= | label=0:30
+contrast | Contrast nearly passed | id= | label=0:15
+contrast | Contrast nearly passed | id= | label=

@@ -1,0 +1,1 @@
+starts=4 countdowns=10 bg=0 maxLate=1.52 audio=1 la=1 laCount=1 laEnd=-0.3 laPhase=Work appRemain=0.0
