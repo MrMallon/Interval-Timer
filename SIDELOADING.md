@@ -32,6 +32,7 @@ A new build appears here automatically every time the app changes on `main`.
 ## 3. Allow it on the iPhone (first time only)
 
 1. **Turn on Developer Mode:** Settings → Privacy & Security → Developer Mode → on. The phone restarts; after it does, tap **Turn On** and enter your passcode.
+   - Don't see Developer Mode? It only appears after an app has been installed with Sideloadly. Do step 2 first, then come back here.
 2. **Trust your Apple ID as a developer:** Settings → General → VPN & Device Management → tap your Apple ID under "Developer App" → **Trust**.
 3. Open Interval Timer.
 
@@ -56,6 +57,7 @@ Sideloadly can also refresh automatically over Wi-Fi while your PC is on: turn o
 - **Sideloadly doesn't see the iPhone:** unlock the phone, re-plug it, and make sure the Apple-website iTunes is installed (not the Store one).
 - **"Maximum number of apps" error:** free accounts allow 3 sideloaded apps per device. Delete another sideloaded app.
 - **"Untrusted Developer" when opening:** do step 3.2 again.
+- **No Developer Mode option in Settings:** install the app with Sideloadly first (step 2); the option shows up after that.
 - **The app stopped opening after a week:** that's the 7-day limit. Re-install (step 4).
 
 When you're ready for the App Store (or want builds that last a year and include the Watch app), a paid Apple Developer membership ($99/year) lets GitHub upload builds to TestFlight instead.
