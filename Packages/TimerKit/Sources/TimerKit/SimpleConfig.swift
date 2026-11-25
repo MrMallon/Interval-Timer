@@ -87,4 +87,9 @@ public enum TimerDefinition: Codable, Hashable, Sendable {
         case .forTime(let config): return config.segments()
         }
     }
+
+    public var isForTime: Bool {
+        if case .forTime = self { return true }
+        return false
+    }
 }

@@ -85,6 +85,16 @@ struct WatchRunView: View {
                 Text(counterText)
                     .font(.footnote.weight(.semibold))
                     .monospacedDigit()
+                if let bpm = session.heartRate {
+                    Label {
+                        Text(verbatim: "\(bpm)")
+                    } icon: {
+                        Image(systemName: "heart.fill")
+                    }
+                    .font(.footnote.weight(.semibold).monospacedDigit())
+                    .labelStyle(.titleAndIcon)
+                    .accessibilityLabel(String(localized: "Heart rate \(bpm) beats per minute"))
+                }
                 if snapshot.segment?.countsRounds == true {
                     Button {
                         session.countRound()
@@ -148,9 +158,15 @@ struct WatchRunView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 LabeledContent("Total", value: TimeFormat.clock(Int(snapshot.elapsed.rounded())))
-                LabeledContent("Rounds", value: session.plan.countsRounds
-                               ? "\(session.roundsCounted)"
-                               : "\(session.roundsCompleted)/\(session.plan.workCount)")
+                if let average = session.averageHeartRate, let peak = session.maxHeartRate {
+                    LabeledContent("Avg heart rate", value: String(localized: "\(average) bpm", comment: "Heart rate, beats per minute"))
+                    LabeledContent("Max heart rate", value: String(localized: "\(peak) bpm", comment: "Heart rate, beats per minute"))
+                }
+                if !session.definition.isForTime {
+                    LabeledContent("Rounds", value: session.plan.countsRounds
+                                   ? "\(session.roundsCounted)"
+                                   : "\(session.roundsCompleted)/\(session.plan.workCount)")
+                }
                 Button("Done") {
                     session.teardown()
                     dismiss()

@@ -30,7 +30,7 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Beep sounds: Classic, Soft or Boxing bell
 - Speaking voice: automatically the best voice installed, or pick one (Enhanced and Premium voices sound far more natural)
 - Share a timer as a QR code or a small `.intervaltimer` file (AirDrop, Messages, Mail); it opens in the editor on the other phone
-- Optional Apple Health logging (off by default; writes workouts, never reads)
+- Optional Apple Health logging (off by default; writes workouts). The only thing ever read is heart rate on the Watch, and only if you turn on **Show heart rate**
 
 ## Try it on your iPhone (no Mac needed)
 
@@ -108,6 +108,8 @@ The Watch app runs on its own (no iPhone needed) and also syncs with the iPhone:
 - Timers made or edited on either device appear on the other; deletions sync too (newest change wins).
 - Workouts finished on the watch show up in the iPhone's History, and the other way round.
 - Cues are wrist taps with their system sounds, plus the same spoken guidance as the iPhone.
+- Edit Simple, AMRAP and For Time timers on the watch; Done and **+1 round** work there too.
+- Optional live heart rate (**Show heart rate** in the Watch app's settings, off by default): shown while you work out, with average and maximum in the summary. It is read for that screen only and not stored.
 - A HealthKit workout session keeps the timer running with your wrist down. Nothing is written to Health unless you turn on **Save to Apple Health** in the Watch app's settings; then the workout is saved with heart rate and calories. The iPhone saves only workouts run on the iPhone, so nothing is counted twice.
 
 To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch or a watch simulator. Signing needs the HealthKit capability, which `project.yml` already declares.

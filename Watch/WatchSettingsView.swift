@@ -24,10 +24,11 @@ struct WatchSettingsView: View {
             .disabled(!settings.cue.voice)
             Section {
                 Toggle("Save to Apple Health", isOn: $settings.saveToHealth)
+                Toggle("Show heart rate", isOn: $settings.showHeartRate)
             } header: {
                 Text("Apple Health")
             } footer: {
-                Text("Saves each workout with heart rate and calories.")
+                Text("Saving adds each workout with heart rate and calories. Showing heart rate reads it during a workout, for this screen only.")
             }
             Section("Screen") {
                 Toggle("Flash", isOn: $settings.cue.flash)

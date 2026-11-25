@@ -137,7 +137,7 @@ targets:
         WKCompanionAppBundleIdentifier: com.mrmallon.intervaltimer
         WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes: [workout-processing]
-        NSHealthShareUsageDescription: Interval Timer runs a workout session so your timer keeps going with your wrist down. It doesn't read your health data.
+        NSHealthShareUsageDescription: When you turn on Show heart rate, Interval Timer reads your heart rate during a workout to show it on the watch. It reads nothing else and keeps nothing.
         NSHealthUpdateUsageDescription: Interval Timer runs a workout session so your timer keeps going with your wrist down. When you turn on Save to Apple Health, it also saves the workout, with heart rate and calories.
     entitlements:
       path: Watch/IntervalTimerWatch.entitlements

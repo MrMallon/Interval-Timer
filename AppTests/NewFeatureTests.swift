@@ -79,6 +79,7 @@ final class NewFeatureTests: XCTestCase {
         XCTAssertTrue(settings.paleColors, "Old settings must not be reset")
         XCTAssertFalse(settings.keepScreenAwake)
         XCTAssertFalse(settings.saveToHealth)
+        XCTAssertFalse(settings.showHeartRate, "Reading heart rate must stay off until the user turns it on")
         XCTAssertEqual(settings.cue.beepStyle, .classic)
     }
 
@@ -87,8 +88,10 @@ final class NewFeatureTests: XCTestCase {
         let settings = SettingsStore(defaults: defaults)
         settings.saveToHealth = true
         settings.cue.beepStyle = .bell
+        settings.showHeartRate = true
         let reloaded = SettingsStore(defaults: defaults)
         XCTAssertTrue(reloaded.saveToHealth)
+        XCTAssertTrue(reloaded.showHeartRate)
         XCTAssertEqual(reloaded.cue.beepStyle, .bell)
     }
 

@@ -189,6 +189,12 @@ final class SegmentCodingTests: XCTestCase {
         XCTAssertFalse(json.contains("group"))
     }
 
+    func testOnlyForTimeIsForTime() {
+        XCTAssertTrue(TimerDefinition.forTime(ForTimeConfig()).isForTime)
+        XCTAssertFalse(TimerDefinition.amrap(AmrapConfig()).isForTime)
+        XCTAssertFalse(TimerDefinition.simple(SimpleConfig()).isForTime)
+    }
+
     func testNewModesRoundTrip() throws {
         let definitions: [TimerDefinition] = [
             .amrap(AmrapConfig(prepare: 5, work: 600, sets: 2, rest: 30)),

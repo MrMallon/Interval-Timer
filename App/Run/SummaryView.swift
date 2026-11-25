@@ -44,9 +44,12 @@ struct SummaryView: View {
             tiles {
                 StatTile(title: "Total", value: TimeFormat.clock(Int(session.snapshot.elapsed.rounded())))
                 StatTile(title: "Working", value: TimeFormat.clock(Int(session.workSecondsDone.rounded())))
-                StatTile(title: "Rounds", value: session.plan.countsRounds
-                         ? "\(session.roundsCounted)"
-                         : "\(session.roundsCompleted)/\(session.plan.workCount)")
+                // A For Time workout has one interval, so "1/1 rounds" would say nothing.
+                if !session.definition.isForTime {
+                    StatTile(title: "Rounds", value: session.plan.countsRounds
+                             ? "\(session.roundsCounted)"
+                             : "\(session.roundsCompleted)/\(session.plan.workCount)")
+                }
             }
             .padding(.horizontal)
 

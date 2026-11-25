@@ -155,6 +155,9 @@ private struct HistoryRow: View {
         case .stopwatch:
             return total + " · " + String(localized: "\(record.laps.count) laps")
         case .interval:
+            if record.definition?.isForTime == true {
+                return record.completed ? total : String(localized: "\(total) · ended early")
+            }
             // AMRAP records have no target number of rounds.
             let rounds = record.totalRounds == 0
                 ? String(localized: "\(record.roundsCompleted) rounds", comment: "AMRAP rounds counted so far")

@@ -23,6 +23,11 @@ final class WatchRunSession: Identifiable {
     private(set) var endedEarly = false
     /// AMRAP: rounds the user has tapped in.
     private(set) var roundsCounted = 0
+    /// Latest heart rate in beats per minute, when "Show heart rate" is on.
+    private(set) var heartRate: Int?
+    private(set) var maxHeartRate: Int?
+    @ObservationIgnored private var heartRateSum = 0.0
+    @ObservationIgnored private var heartRateCount = 0
 
     @ObservationIgnored private var engine: TimerEngine
     @ObservationIgnored private var cursor: CueCursor
@@ -56,7 +61,10 @@ final class WatchRunSession: Identifiable {
     func start() {
         guard engine.status == .idle else { return }
         // A workout session keeps the app running with the wrist down.
-        keepAlive.begin(saveToHealth: settings.saveToHealth)
+        keepAlive.onHeartRate = { [weak self] readings in
+            Task { @MainActor in self?.addHeartRates(readings) }
+        }
+        keepAlive.begin(saveToHealth: settings.saveToHealth, readHeartRate: settings.showHeartRate)
         cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
         let now = Self.now()
         startedAt = Date()
@@ -105,6 +113,22 @@ final class WatchRunSession: Identifiable {
 
     func uncountRound() {
         roundsCounted = max(0, roundsCounted - 1)
+    }
+
+    /// Average heart rate over the workout so far.
+    var averageHeartRate: Int? {
+        heartRateCount > 0 ? Int((heartRateSum / Double(heartRateCount)).rounded()) : nil
+    }
+
+    /// Readings, oldest first, in beats per minute.
+    private func addHeartRates(_ readings: [Double]) {
+        guard !readings.isEmpty, !isFinished else { return }
+        for bpm in readings where bpm > 0 {
+            heartRateSum += bpm
+            heartRateCount += 1
+            maxHeartRate = max(maxHeartRate ?? 0, Int(bpm.rounded()))
+        }
+        if let latest = readings.last { heartRate = Int(latest.rounded()) }
     }
 
     /// "+10 s": lengthens the interval running now.
@@ -234,22 +258,49 @@ final class WorkoutKeepAlive: NSObject, HKWorkoutSessionDelegate, @unchecked Sen
     private let store = HKHealthStore()
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    private var heartRateQuery: HKAnchoredObjectQuery?
     private var collecting = false
     private var wanted = false
     private var record = false
+    private var readHeartRate = false
+    /// New heart rate readings (beats per minute, oldest first), on a background queue.
+    var onHeartRate: (@Sendable ([Double]) -> Void)?
 
-    func begin(saveToHealth: Bool) {
+    /// `readHeartRate` asks to read heart rate (only when the user turned on
+    /// "Show heart rate"); nothing else is ever read.
+    func begin(saveToHealth: Bool, readHeartRate: Bool = false) {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         wanted = true
         record = saveToHealth
+        self.readHeartRate = readHeartRate
         var share: Set<HKSampleType> = [HKObjectType.workoutType()]
         if saveToHealth {
             share.insert(HKQuantityType(.activeEnergyBurned))
             share.insert(HKQuantityType(.heartRate))
         }
-        store.requestAuthorization(toShare: share, read: []) { [weak self] _, _ in
+        let read: Set<HKObjectType> = readHeartRate ? [HKQuantityType(.heartRate)] : []
+        store.requestAuthorization(toShare: share, read: read) { [weak self] _, _ in
             DispatchQueue.main.async { self?.startSession() }
         }
+    }
+
+    /// Streams heart rate measured from `start` on. The running workout session
+    /// makes the watch measure every few seconds.
+    private func startHeartRateQuery(from start: Date) {
+        let type = HKQuantityType(.heartRate)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: .strictStartDate)
+        let handler: (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void = { [weak self] _, samples, _, _, _ in
+            let perMinute = HKUnit.count().unitDivided(by: .minute())
+            let readings = (samples as? [HKQuantitySample] ?? [])
+                .sorted { $0.endDate < $1.endDate }
+                .map { $0.quantity.doubleValue(for: perMinute) }
+            guard !readings.isEmpty else { return }
+            self?.onHeartRate?(readings)
+        }
+        let query = HKAnchoredObjectQuery(type: type, predicate: predicate, anchor: nil, limit: HKObjectQueryNoLimit, resultsHandler: handler)
+        query.updateHandler = handler
+        heartRateQuery = query
+        store.execute(query)
     }
 
     private func startSession() {
@@ -263,6 +314,7 @@ final class WorkoutKeepAlive: NSObject, HKWorkoutSessionDelegate, @unchecked Sen
             let start = Date()
             session.startActivity(with: start)
             self.session = session
+            if readHeartRate { startHeartRateQuery(from: start) }
             if record, store.authorizationStatus(for: .workoutType()) == .sharingAuthorized {
                 let builder = session.associatedWorkoutBuilder()
                 builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: configuration)
@@ -280,6 +332,10 @@ final class WorkoutKeepAlive: NSObject, HKWorkoutSessionDelegate, @unchecked Sen
     /// Ends the session. `save` keeps the workout in Health (only if recording was on).
     func end(save: Bool = false) {
         wanted = false
+        if let heartRateQuery {
+            store.stop(heartRateQuery)
+            self.heartRateQuery = nil
+        }
         guard let session else { return }
         self.session = nil
         session.end()
