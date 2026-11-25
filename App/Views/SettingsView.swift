@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 import TimerKit
 
@@ -28,6 +29,11 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        VoicePickerView()
+                    } label: {
+                        LabeledContent("Speaking voice", value: voiceName)
+                    }
                     Toggle("Time left announcements", isOn: $settings.cue.timeMarkers)
                     Toggle("Announce what's next during rest", isOn: $settings.cue.announceNext)
                     Toggle("Lower music while speaking", isOn: $settings.cue.duckMusic)
@@ -55,6 +61,15 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
         }
+    }
+
+    /// The picked voice's name, or "Automatic" when none is picked or it was deleted.
+    private var voiceName: String {
+        guard let id = settings.cue.voiceIdentifier,
+              let voice = AVSpeechSynthesisVoice(identifier: id) else {
+            return String(localized: "Automatic")
+        }
+        return voice.name
     }
 }
 

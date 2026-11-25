@@ -25,6 +25,7 @@ final class WatchRunSession: Identifiable {
     @ObservationIgnored private var cursor: CueCursor
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let speech = AVSpeechSynthesizer()
+    @ObservationIgnored private lazy var voice = SpeechVoices.voice(identifier: settings.cue.voiceIdentifier)
     @ObservationIgnored private let keepAlive = WorkoutKeepAlive()
     @ObservationIgnored private var loop: Task<Void, Never>?
 
@@ -156,7 +157,7 @@ final class WatchRunSession: Identifiable {
         guard settings.cue.voice, let line = VoiceScript.line(for: event, plan: plan) else { return }
         if interrupt, speech.isSpeaking { speech.stopSpeaking(at: .immediate) }
         let utterance = AVSpeechUtterance(string: line)
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.preferredLanguages.first ?? "en-US")
+        utterance.voice = voice
         speech.speak(utterance)
     }
 

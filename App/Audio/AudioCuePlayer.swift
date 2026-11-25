@@ -21,6 +21,8 @@ final class AudioCuePlayer: NSObject {
     private var sourceNode: AVAudioSourceNode?
     private var isActive = false
     private var duckingEnabled = false
+    private var settings = CueSettings()
+    private var voice: AVSpeechSynthesisVoice?
     private var isDucked = false
 
     override init() {
@@ -44,7 +46,10 @@ final class AudioCuePlayer: NSObject {
 
     /// Activates audio for a workout. No-op when all sounds are off.
     func activate(settings: CueSettings) {
+        self.settings = settings
         duckingEnabled = settings.duckMusic
+        // Looked up once per workout: listing installed voices is too slow for every cue.
+        voice = settings.voice ? SpeechVoices.voice(identifier: settings.voiceIdentifier) : nil
         guard !settings.isSilent else { return }
         guard !isActive else { return }
         do {
@@ -128,9 +133,10 @@ final class AudioCuePlayer: NSObject {
         }
         if duckingEnabled { setDucked(true) }
         let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.05
+        // Natural pace: anything faster makes the voice sound clipped and harsh.
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.volume = 1
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.preferredLanguages.first ?? "en-US")
+        utterance.voice = voice ?? SpeechVoices.voice(identifier: settings.voiceIdentifier)
         speech.speak(utterance)
     }
 
@@ -196,7 +202,7 @@ final class AudioCuePlayer: NSObject {
         }
         sourceNode = nil
         if wasActive {
-            activate(settings: CueSettings(duckMusic: duckingEnabled))
+            activate(settings: settings)
         }
     }
 }

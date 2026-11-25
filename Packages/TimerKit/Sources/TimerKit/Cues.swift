@@ -22,6 +22,9 @@ public struct CueSettings: Codable, Hashable, Sendable {
     public var haptics: Bool
     /// Lower other apps' audio while speaking. Off by default: we mix, never duck.
     public var duckMusic: Bool
+    /// The speech voice the user picked (`AVSpeechSynthesisVoice.identifier`).
+    /// `nil` means automatic: the best-quality voice installed for their language.
+    public var voiceIdentifier: String?
 
     public init(
         beeps: Bool = true,
@@ -33,7 +36,8 @@ public struct CueSettings: Codable, Hashable, Sendable {
         announceNext: Bool = true,
         flash: Bool = true,
         haptics: Bool = true,
-        duckMusic: Bool = false
+        duckMusic: Bool = false,
+        voiceIdentifier: String? = nil
     ) {
         self.beeps = beeps
         self.voice = voice
@@ -45,6 +49,27 @@ public struct CueSettings: Codable, Hashable, Sendable {
         self.flash = flash
         self.haptics = haptics
         self.duckMusic = duckMusic
+        self.voiceIdentifier = voiceIdentifier
+    }
+
+    /// Missing keys fall back to their defaults, so settings saved by an older
+    /// version of the app keep working when a new option is added.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = CueSettings()
+        self.init(
+            beeps: try c.decodeIfPresent(Bool.self, forKey: .beeps) ?? d.beeps,
+            voice: try c.decodeIfPresent(Bool.self, forKey: .voice) ?? d.voice,
+            ticking: try c.decodeIfPresent(Bool.self, forKey: .ticking) ?? d.ticking,
+            countdownSeconds: try c.decodeIfPresent(Int.self, forKey: .countdownSeconds) ?? d.countdownSeconds,
+            timeMarkers: try c.decodeIfPresent(Bool.self, forKey: .timeMarkers) ?? d.timeMarkers,
+            markerPoints: try c.decodeIfPresent([Int].self, forKey: .markerPoints) ?? d.markerPoints,
+            announceNext: try c.decodeIfPresent(Bool.self, forKey: .announceNext) ?? d.announceNext,
+            flash: try c.decodeIfPresent(Bool.self, forKey: .flash) ?? d.flash,
+            haptics: try c.decodeIfPresent(Bool.self, forKey: .haptics) ?? d.haptics,
+            duckMusic: try c.decodeIfPresent(Bool.self, forKey: .duckMusic) ?? d.duckMusic,
+            voiceIdentifier: try c.decodeIfPresent(String.self, forKey: .voiceIdentifier)
+        )
     }
 
     public static let `default` = CueSettings()
