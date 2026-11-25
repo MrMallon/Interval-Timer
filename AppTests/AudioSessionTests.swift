@@ -74,4 +74,23 @@ final class AudioSessionTests: XCTestCase {
         }
         XCTAssertTrue(session.categoryOptions.contains(.mixWithOthers))
     }
+
+    func testMusicComesBackAfterVoiceLinesInterruptEachOther() async throws {
+        let player = AudioCuePlayer()
+        player.activate(settings: CueSettings(voice: true, duckMusic: true))
+        defer { player.deactivate() }
+        await player.settle()
+
+        // Countdown-style lines that cut each other off, as during a workout.
+        for line in ["Three", "Two", "One", "Work"] {
+            player.speak(line)
+            try await Task.sleep(nanoseconds: 150_000_000)
+        }
+        await player.settle()
+        XCTAssertTrue(session.categoryOptions.contains(.duckOthers), "Music lowers while the voice speaks")
+
+        try await waitUntil(10, "Music volume was never restored after interrupted lines") {
+            !self.session.categoryOptions.contains(.duckOthers)
+        }
+    }
 }

@@ -29,6 +29,11 @@ final class AudioCuePlayer: NSObject {
     /// Lines waiting for the music to finish lowering before they're spoken.
     private var waitingToSpeak: [AVSpeechUtterance] = []
     private var duckPending = false
+    /// Lifts the ducking once speech has really gone quiet. Speech callbacks alone
+    /// aren't enough: `isSpeaking` can still read true when `didFinish` arrives,
+    /// which used to leave the user's music lowered until the next voice line.
+    private var undockWatch: Task<Void, Never>?
+    private var undockRetries = 0
 
     override init() {
         super.init()
@@ -76,6 +81,8 @@ final class AudioCuePlayer: NSObject {
         isActive = false
         isDucked = false
         duckPending = false
+        undockWatch?.cancel()
+        undockWatch = nil
     }
 
     /// Waits until queued audio session changes have been applied. For tests.
@@ -118,17 +125,62 @@ final class AudioCuePlayer: NSObject {
         guard isActive, ducked != isDucked else { return }
         isDucked = ducked
         duckPending = ducked
-        worker.setDucked(ducked) { [weak self] in
-            Task { @MainActor in self?.duckApplied(ducked) }
+        if ducked {
+            undockRetries = 0
+            startUndockWatch()
+        } else {
+            undockWatch?.cancel()
+            undockWatch = nil
+        }
+        worker.setDucked(ducked) { [weak self] succeeded in
+            Task { @MainActor in self?.duckApplied(ducked, succeeded: succeeded) }
         }
     }
 
-    private func duckApplied(_ ducked: Bool) {
-        guard ducked, isDucked, duckPending else { return }
+    private func duckApplied(_ ducked: Bool, succeeded: Bool) {
+        if !ducked {
+            // iOS refused to lift the ducking: try again shortly so the music
+            // doesn't stay quiet for the rest of the workout.
+            guard !succeeded, isActive, !isDucked, undockRetries < 5 else { return }
+            undockRetries += 1
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard let self, self.isActive, !self.isDucked else { return }
+                self.worker.setDucked(false) { [weak self] succeeded in
+                    Task { @MainActor in self?.duckApplied(false, succeeded: succeeded) }
+                }
+            }
+            return
+        }
+        guard isDucked, duckPending else { return }
         duckPending = false
         let lines = waitingToSpeak
         waitingToSpeak.removeAll()
         lines.forEach { speech.speak($0) }
+    }
+
+    /// Nothing is speaking or about to speak.
+    private var isQuiet: Bool {
+        !speech.isSpeaking && waitingToSpeak.isEmpty && !duckPending
+    }
+
+    /// While ducked, checks a few times a second and restores the music once
+    /// speech has been quiet for two checks in a row (so back-to-back lines
+    /// don't make the music bounce up and down).
+    private func startUndockWatch() {
+        undockWatch?.cancel()
+        undockWatch = Task { @MainActor [weak self] in
+            var quietChecks = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                guard !Task.isCancelled, let self, self.isDucked else { return }
+                quietChecks = self.isQuiet ? quietChecks + 1 : 0
+                if quietChecks >= 2 {
+                    self.setDucked(false)
+                    return
+                }
+            }
+        }
     }
 
     // MARK: - Notifications
@@ -152,7 +204,7 @@ final class AudioCuePlayer: NSObject {
             onInterruption?(true, false)
             return
         }
-        if isActive { worker.resumeAfterInterruption() }
+        if isActive { worker.resumeAfterInterruption(ducked: isDucked && !duckPending) }
         onInterruption?(false, shouldResume)
     }
 
@@ -167,6 +219,9 @@ final class AudioCuePlayer: NSObject {
         let wasActive = isActive
         isActive = false
         isDucked = false
+        duckPending = false
+        undockWatch?.cancel()
+        undockWatch = nil
         worker.discardGraph()
         if wasActive {
             activate(settings: settings)
@@ -175,19 +230,12 @@ final class AudioCuePlayer: NSObject {
 }
 
 extension AudioCuePlayer: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self, !self.speech.isSpeaking, self.waitingToSpeak.isEmpty else { return }
-            self.setDucked(false)
-        }
-    }
+    // Music is restored by `startUndockWatch`, not here: at these callbacks the
+    // synthesizer can still report it is speaking and still be holding audio,
+    // so un-ducking from them was skipped or refused now and then.
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {}
 
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor [weak self] in
-            guard let self, !self.speech.isSpeaking, self.waitingToSpeak.isEmpty else { return }
-            self.setDucked(false)
-        }
-    }
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {}
 }
 
 /// Does the slow audio session and engine work on its own serial queue, in the
@@ -229,29 +277,50 @@ final class AudioSessionWorker: @unchecked Sendable {
         }
     }
 
-    /// `done` runs on the audio queue once the change has been applied (or failed).
-    func setDucked(_ ducked: Bool, done: @escaping @Sendable () -> Void = {}) {
+    /// `done` runs on the audio queue once the change has been applied, with
+    /// `false` if iOS refused it.
+    func setDucked(_ ducked: Bool, done: @escaping @Sendable (_ succeeded: Bool) -> Void = { _ in }) {
         queue.async { [self] in
-            defer { done() }
+            var succeeded = true
             let options: AVAudioSession.CategoryOptions = ducked ? [.mixWithOthers, .duckOthers] : [.mixWithOthers]
+            if !ducked {
+                // iOS only lifts ducking when the session deactivates. Pause our
+                // (silent at this point) engine so deactivation isn't refused as busy.
+                engine.pause()
+                succeeded = deactivateForUnduck()
+            }
             do {
-                if !ducked {
-                    // iOS only lifts ducking when the session deactivates. Pause our
-                    // (silent at this point) engine so deactivation isn't refused as busy.
-                    engine.pause()
-                    try? session.setActive(false, options: .notifyOthersOnDeactivation)
-                }
                 try session.setCategory(.playback, mode: .default, options: options)
                 try session.setActive(true)
                 if !engine.isRunning { try engine.start() }
             } catch {
                 print("Ducking change failed: \(error)")
+                succeeded = false
             }
+            done(succeeded)
         }
     }
 
-    func resumeAfterInterruption() {
+    /// The speech voice can hold on to audio for a moment after it finishes,
+    /// and iOS then refuses to deactivate. Try a few times before giving up.
+    private func deactivateForUnduck() -> Bool {
+        for attempt in 0..<4 {
+            do {
+                try session.setActive(false, options: .notifyOthersOnDeactivation)
+                return true
+            } catch {
+                if attempt < 3 { Thread.sleep(forTimeInterval: 0.1) }
+            }
+        }
+        print("Could not release ducked audio")
+        return false
+    }
+
+    /// `ducked` is whether the music should still be lowered after the interruption.
+    func resumeAfterInterruption(ducked: Bool) {
         queue.async { [self] in
+            let options: AVAudioSession.CategoryOptions = ducked ? [.mixWithOthers, .duckOthers] : [.mixWithOthers]
+            try? session.setCategory(.playback, mode: .default, options: options)
             try? session.setActive(true)
             if !engine.isRunning { try? engine.start() }
         }
