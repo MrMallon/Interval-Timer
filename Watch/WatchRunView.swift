@@ -73,9 +73,22 @@ struct WatchRunView: View {
                 .contentTransition(.numericText(countsDown: true))
                 .accessibilityLabel(String(localized: "\(Int(snapshot.remainingInSegment.rounded(.up))) seconds remaining"))
 
-            Text(counterText)
-                .font(.footnote.weight(.semibold))
-                .monospacedDigit()
+            HStack(spacing: 8) {
+                Text(counterText)
+                    .font(.footnote.weight(.semibold))
+                    .monospacedDigit()
+                Button {
+                    session.addTime(10)
+                } label: {
+                    Text(verbatim: "+10")
+                        .font(.footnote.weight(.bold).monospacedDigit())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(PhaseStyle.controlFill, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add 10 seconds")
+            }
 
             HStack(spacing: 10) {
                 RoundButton(systemImage: "xmark", label: "End workout") { confirmEnd = true }

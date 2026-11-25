@@ -9,25 +9,31 @@ import TimerKit
 ///   the user turned "Lower music while speaking" on.
 /// - When every sound is off we never activate the session at all, so the
 ///   user's volume is never touched.
+///
+/// Activating and deactivating the audio session can block for a noticeable
+/// time, so that work runs in order on `AudioSessionWorker`'s background
+/// queue and never on the main thread.
 @MainActor
 final class AudioCuePlayer: NSObject {
     /// Called when another app or a phone call interrupts us (`true` = began).
     var onInterruption: ((_ began: Bool, _ shouldResume: Bool) -> Void)?
 
-    private let session = AVAudioSession.sharedInstance()
-    private let engine = AVAudioEngine()
-    private let synth = ToneSynth()
+    private let worker = AudioSessionWorker()
     private let speech = AVSpeechSynthesizer()
-    private var sourceNode: AVAudioSourceNode?
+    /// True from `activate` until `deactivate` (the session itself follows a moment later).
     private var isActive = false
     private var duckingEnabled = false
     private var settings = CueSettings()
     private var voice: AVSpeechSynthesisVoice?
     private var isDucked = false
+    /// Lines waiting for the music to finish lowering before they're spoken.
+    private var waitingToSpeak: [AVSpeechUtterance] = []
+    private var duckPending = false
 
     override init() {
         super.init()
         speech.delegate = self
+        let session = AVAudioSession.sharedInstance()
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruption(_:)),
@@ -52,111 +58,77 @@ final class AudioCuePlayer: NSObject {
         voice = settings.voice ? SpeechVoices.voice(identifier: settings.voiceIdentifier) : nil
         guard !settings.isSilent else { return }
         guard !isActive else { return }
-        do {
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true)
-            isActive = true
-        } catch {
-            print("Audio session activation failed: \(error)")
-            return
-        }
-        do {
-            try startEngine()
-        } catch {
-            print("Audio engine failed to start: \(error)")
-        }
+        isActive = true
+        worker.activate()
     }
 
-    /// True while our audio session is active (never when every sound is off).
+    /// True while audio is switched on for a workout (never when every sound is off).
     var isSessionActive: Bool { isActive }
 
     /// True while the tone engine renders; this is what keeps the app alive on a locked screen.
-    var isEngineRunning: Bool { engine.isRunning }
+    var isEngineRunning: Bool { worker.isEngineRunning }
 
     func deactivate() {
         speech.stopSpeaking(at: .immediate)
-        synth.stopAll()
-        engine.stop()
-        if isActive {
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
-        }
+        waitingToSpeak.removeAll()
+        worker.synth.stopAll()
+        if isActive { worker.deactivate() }
         isActive = false
         isDucked = false
+        duckPending = false
     }
 
-    private func startEngine() throws {
-        if sourceNode == nil {
-            let outputFormat = engine.outputNode.inputFormat(forBus: 0)
-            let sampleRate = outputFormat.sampleRate > 0 ? outputFormat.sampleRate : 44_100
-            synth.configure(sampleRate: sampleRate)
-            guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
-                throw NSError(domain: "AudioCuePlayer", code: 1)
-            }
-            let node = Self.makeSourceNode(format: format, synth: synth)
-            engine.attach(node)
-            engine.connect(node, to: engine.mainMixerNode, format: format)
-            sourceNode = node
-        }
-        if !engine.isRunning {
-            engine.prepare()
-            try engine.start()
-        }
-    }
-
-    /// Built outside the main actor so the real-time render block carries no actor isolation.
-    private nonisolated static func makeSourceNode(format: AVAudioFormat, synth: ToneSynth) -> AVAudioSourceNode {
-        AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
-            synth.render(
-                frameCount: Int(frameCount),
-                into: UnsafeMutableAudioBufferListPointer(audioBufferList)
-            )
-            return noErr
-        }
+    /// Waits until queued audio session changes have been applied. For tests.
+    func settle() async {
+        await worker.settle()
     }
 
     // MARK: - Playback
 
     func play(tone: ToneSynth.Tone) {
-        guard isActive else { return }
-        synth.play([tone])
+        play(tones: [tone])
     }
 
     func play(tones: [ToneSynth.Tone]) {
         guard isActive else { return }
-        synth.play(tones)
+        worker.synth.play(tones)
     }
 
     func speak(_ text: String, interrupt: Bool = true) {
         guard isActive else { return }
-        if interrupt, speech.isSpeaking {
-            speech.stopSpeaking(at: .immediate)
+        if interrupt {
+            waitingToSpeak.removeAll()
+            if speech.isSpeaking { speech.stopSpeaking(at: .immediate) }
         }
-        if duckingEnabled { setDucked(true) }
         let utterance = AVSpeechUtterance(string: text)
         // Natural pace: anything faster makes the voice sound clipped and harsh.
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.volume = 1
         utterance.voice = voice ?? SpeechVoices.voice(identifier: settings.voiceIdentifier)
-        speech.speak(utterance)
+        if duckingEnabled, !isDucked || duckPending {
+            // Lower the music first: changing the audio session mid-sentence cuts the voice off.
+            waitingToSpeak.append(utterance)
+            setDucked(true)
+        } else {
+            speech.speak(utterance)
+        }
     }
 
     private func setDucked(_ ducked: Bool) {
         guard isActive, ducked != isDucked else { return }
-        let options: AVAudioSession.CategoryOptions = ducked ? [.mixWithOthers, .duckOthers] : [.mixWithOthers]
-        do {
-            if !ducked {
-                // iOS only lifts ducking when the session deactivates. Pause our
-                // (silent at this point) engine so deactivation isn't refused as busy.
-                engine.pause()
-                try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            }
-            try session.setCategory(.playback, mode: .default, options: options)
-            try session.setActive(true)
-            if !engine.isRunning { try engine.start() }
-            isDucked = ducked
-        } catch {
-            print("Ducking change failed: \(error)")
+        isDucked = ducked
+        duckPending = ducked
+        worker.setDucked(ducked) { [weak self] in
+            Task { @MainActor in self?.duckApplied(ducked) }
         }
+    }
+
+    private func duckApplied(_ ducked: Bool) {
+        guard ducked, isDucked, duckPending else { return }
+        duckPending = false
+        let lines = waitingToSpeak
+        waitingToSpeak.removeAll()
+        lines.forEach { speech.speak($0) }
     }
 
     // MARK: - Notifications
@@ -180,10 +152,7 @@ final class AudioCuePlayer: NSObject {
             onInterruption?(true, false)
             return
         }
-        if isActive {
-            try? session.setActive(true)
-            if !engine.isRunning { try? engine.start() }
-        }
+        if isActive { worker.resumeAfterInterruption() }
         onInterruption?(false, shouldResume)
     }
 
@@ -197,10 +166,8 @@ final class AudioCuePlayer: NSObject {
         // Audio services restarted: rebuild the graph.
         let wasActive = isActive
         isActive = false
-        if let sourceNode {
-            engine.detach(sourceNode)
-        }
-        sourceNode = nil
+        isDucked = false
+        worker.discardGraph()
         if wasActive {
             activate(settings: settings)
         }
@@ -210,15 +177,128 @@ final class AudioCuePlayer: NSObject {
 extension AudioCuePlayer: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
-            guard let self, !self.speech.isSpeaking else { return }
+            guard let self, !self.speech.isSpeaking, self.waitingToSpeak.isEmpty else { return }
             self.setDucked(false)
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         Task { @MainActor [weak self] in
-            guard let self, !self.speech.isSpeaking else { return }
+            guard let self, !self.speech.isSpeaking, self.waitingToSpeak.isEmpty else { return }
             self.setDucked(false)
+        }
+    }
+}
+
+/// Does the slow audio session and engine work on its own serial queue, in the
+/// order it was asked for. Everything it touches is only used on that queue
+/// (the synth has its own lock), which is what makes the `@unchecked Sendable` safe.
+final class AudioSessionWorker: @unchecked Sendable {
+    let synth = ToneSynth()
+    /// One queue for every player: they all share the app's single audio session,
+    /// so one player's shutdown must finish before the next one starts up.
+    private static let sharedQueue = DispatchQueue(label: "com.mrmallon.intervaltimer.audio", qos: .userInitiated)
+    private var queue: DispatchQueue { Self.sharedQueue }
+    private let session = AVAudioSession.sharedInstance()
+    private let engine = AVAudioEngine()
+    private var sourceNode: AVAudioSourceNode?
+
+    var isEngineRunning: Bool { engine.isRunning }
+
+    func activate() {
+        queue.async { [self] in
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+            } catch {
+                print("Audio session activation failed: \(error)")
+                return
+            }
+            do {
+                try startEngine()
+            } catch {
+                print("Audio engine failed to start: \(error)")
+            }
+        }
+    }
+
+    func deactivate() {
+        queue.async { [self] in
+            engine.stop()
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+
+    /// `done` runs on the audio queue once the change has been applied (or failed).
+    func setDucked(_ ducked: Bool, done: @escaping @Sendable () -> Void = {}) {
+        queue.async { [self] in
+            defer { done() }
+            let options: AVAudioSession.CategoryOptions = ducked ? [.mixWithOthers, .duckOthers] : [.mixWithOthers]
+            do {
+                if !ducked {
+                    // iOS only lifts ducking when the session deactivates. Pause our
+                    // (silent at this point) engine so deactivation isn't refused as busy.
+                    engine.pause()
+                    try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                }
+                try session.setCategory(.playback, mode: .default, options: options)
+                try session.setActive(true)
+                if !engine.isRunning { try engine.start() }
+            } catch {
+                print("Ducking change failed: \(error)")
+            }
+        }
+    }
+
+    func resumeAfterInterruption() {
+        queue.async { [self] in
+            try? session.setActive(true)
+            if !engine.isRunning { try? engine.start() }
+        }
+    }
+
+    /// After an audio services reset the old graph is dead; the next `activate` builds a new one.
+    func discardGraph() {
+        queue.async { [self] in
+            if let sourceNode {
+                engine.detach(sourceNode)
+            }
+            sourceNode = nil
+        }
+    }
+
+    func settle() async {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
+        }
+    }
+
+    private func startEngine() throws {
+        if sourceNode == nil {
+            let outputFormat = engine.outputNode.inputFormat(forBus: 0)
+            let sampleRate = outputFormat.sampleRate > 0 ? outputFormat.sampleRate : 44_100
+            synth.configure(sampleRate: sampleRate)
+            guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
+                throw NSError(domain: "AudioCuePlayer", code: 1)
+            }
+            let node = Self.makeSourceNode(format: format, synth: synth)
+            engine.attach(node)
+            engine.connect(node, to: engine.mainMixerNode, format: format)
+            sourceNode = node
+        }
+        if !engine.isRunning {
+            engine.prepare()
+            try engine.start()
+        }
+    }
+
+    private static func makeSourceNode(format: AVAudioFormat, synth: ToneSynth) -> AVAudioSourceNode {
+        AVAudioSourceNode(format: format) { _, _, frameCount, audioBufferList -> OSStatus in
+            synth.render(
+                frameCount: Int(frameCount),
+                into: UnsafeMutableAudioBufferListPointer(audioBufferList)
+            )
+            return noErr
         }
     }
 }

@@ -5,6 +5,7 @@ import WidgetKit
 struct QuickStartEntry: TimelineEntry {
     let date: Date
     let timers: [WidgetTimer]
+    var last: WidgetTimer? = nil
 }
 
 struct QuickStartProvider: TimelineProvider {
@@ -19,7 +20,7 @@ struct QuickStartProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<QuickStartEntry>) -> Void) {
         // The app reloads this timeline whenever the timer list changes.
-        completion(Timeline(entries: [QuickStartEntry(date: Date(), timers: WidgetStore.load())], policy: .never))
+        completion(Timeline(entries: [QuickStartEntry(date: Date(), timers: WidgetStore.load(), last: WidgetStore.loadLast())], policy: .never))
     }
 
     static let sample: [WidgetTimer] = [
@@ -69,9 +70,24 @@ struct QuickStartView: View {
                 .widgetURL(DeepLink.start(timer.id).url)
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Quick start")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("Quick start")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    if let last = entry.last {
+                        Link(destination: DeepLink.repeatLast.url) {
+                            Label {
+                                Text("Repeat \(last.name)")
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: "arrow.counterclockwise")
+                            }
+                            .font(.caption.weight(.semibold))
+                        }
+                        .accessibilityLabel(Text("Repeat \(last.name)"))
+                    }
+                }
                 ForEach(entry.timers.prefix(limit)) { timer in
                     Link(destination: DeepLink.start(timer.id).url) {
                         TimerRow(timer: timer)

@@ -13,7 +13,8 @@ final class WatchRunSession: Identifiable {
     let name: String
     let color: ThemeColor
     let definition: TimerDefinition
-    let plan: WorkoutPlan
+    /// Grows when the user adds time to an interval.
+    private(set) var plan: WorkoutPlan
 
     private(set) var snapshot: TimerSnapshot
     private(set) var flashCount = 0
@@ -53,7 +54,7 @@ final class WatchRunSession: Identifiable {
     func start() {
         guard engine.status == .idle else { return }
         // A workout session keeps the app running with the wrist down.
-        keepAlive.begin()
+        keepAlive.begin(saveToHealth: settings.saveToHealth)
         cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
         let now = Self.now()
         startedAt = Date()
@@ -85,6 +86,17 @@ final class WatchRunSession: Identifiable {
         process(at: now, force: true)
     }
 
+    /// "+10 s": lengthens the interval running now.
+    func addTime(_ seconds: Int) {
+        let now = Self.now()
+        guard engine.extendCurrentSegment(by: seconds, at: now) else { return }
+        plan = engine.plan
+        cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
+        cursor.skip(to: engine.elapsed(at: now))
+        if settings.cue.haptics { WKInterfaceDevice.current().play(.click) }
+        process(at: now, force: true)
+    }
+
     func end() {
         if !isFinished {
             endedEarly = true
@@ -98,7 +110,12 @@ final class WatchRunSession: Identifiable {
         loop?.cancel()
         loop = nil
         speech.stopSpeaking(at: .immediate)
-        keepAlive.end()
+        keepAlive.end(save: shouldSaveToHealth)
+    }
+
+    /// Workouts shorter than 30 s aren't worth a Health entry.
+    private var shouldSaveToHealth: Bool {
+        settings.saveToHealth && snapshot.elapsed >= 30
     }
 
     // MARK: - Loop
@@ -119,7 +136,8 @@ final class WatchRunSession: Identifiable {
             loop?.cancel()
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
-                self?.keepAlive.end()
+                guard let self else { return }
+                self.keepAlive.end(save: self.shouldSaveToHealth)
             }
         }
     }
@@ -200,17 +218,27 @@ final class WatchRunSession: Identifiable {
 }
 
 /// Runs an HKWorkoutSession for the length of a timer so watchOS keeps the
-/// app running (and cueing) when the wrist is lowered. Nothing is saved to Health.
+/// app running (and cueing) when the wrist is lowered. When "Save to Apple
+/// Health" is on, the session's workout (with heart rate and calories) is saved
+/// at the end; otherwise nothing is written to Health.
 final class WorkoutKeepAlive: NSObject, HKWorkoutSessionDelegate, @unchecked Sendable {
     private let store = HKHealthStore()
     private var session: HKWorkoutSession?
+    private var builder: HKLiveWorkoutBuilder?
+    private var collecting = false
     private var wanted = false
+    private var record = false
 
-    func begin() {
+    func begin(saveToHealth: Bool) {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         wanted = true
-        let workoutType = HKObjectType.workoutType()
-        store.requestAuthorization(toShare: [workoutType], read: []) { [weak self] _, _ in
+        record = saveToHealth
+        var share: Set<HKSampleType> = [HKObjectType.workoutType()]
+        if saveToHealth {
+            share.insert(HKQuantityType(.activeEnergyBurned))
+            share.insert(HKQuantityType(.heartRate))
+        }
+        store.requestAuthorization(toShare: share, read: []) { [weak self] _, _ in
             DispatchQueue.main.async { self?.startSession() }
         }
     }
@@ -223,18 +251,41 @@ final class WorkoutKeepAlive: NSObject, HKWorkoutSessionDelegate, @unchecked Sen
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: configuration)
             session.delegate = self
-            session.startActivity(with: Date())
+            let start = Date()
+            session.startActivity(with: start)
             self.session = session
+            if record, store.authorizationStatus(for: .workoutType()) == .sharingAuthorized {
+                let builder = session.associatedWorkoutBuilder()
+                builder.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: configuration)
+                self.builder = builder
+                builder.beginCollection(withStart: start) { [weak self] began, _ in
+                    DispatchQueue.main.async { self?.collecting = began }
+                }
+            }
         } catch {
             // Without HealthKit the timer still works; it just pauses with the wrist down.
             print("Workout session unavailable: \(error)")
         }
     }
 
-    func end() {
+    /// Ends the session. `save` keeps the workout in Health (only if recording was on).
+    func end(save: Bool = false) {
         wanted = false
-        session?.end()
-        session = nil
+        guard let session else { return }
+        self.session = nil
+        session.end()
+        guard let builder else { return }
+        self.builder = nil
+        if save, collecting {
+            builder.endCollection(withEnd: Date()) { _, _ in
+                builder.finishWorkout { _, error in
+                    if let error { print("Saving to Health failed: \(error)") }
+                }
+            }
+        } else {
+            builder.discardWorkout()
+        }
+        collecting = false
     }
 
     func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {}

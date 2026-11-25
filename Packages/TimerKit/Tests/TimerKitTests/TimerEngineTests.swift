@@ -137,3 +137,50 @@ final class TimerEngineTests: XCTestCase {
         XCTAssertEqual(TimeFormat.stopwatch(83.456), "1:23.45")
     }
 }
+
+final class ExtendSegmentTests: XCTestCase {
+    private func plan() -> WorkoutPlan {
+        WorkoutPlan(name: "T", segments: [
+            Segment(kind: .work, duration: 20, round: 1, cycle: 1),
+            Segment(kind: .rest, duration: 10, round: 1, cycle: 1),
+            Segment(kind: .work, duration: 20, round: 2, cycle: 1)
+        ])
+    }
+
+    func testAddingTimeLengthensOnlyTheCurrentSegment() {
+        var engine = TimerEngine(plan: plan())
+        engine.start(at: 0)
+        // 5 s into the rest.
+        XCTAssertTrue(engine.extendCurrentSegment(by: 10, at: 25))
+        let snap = engine.snapshot(at: 25)
+        XCTAssertEqual(snap.segment?.kind, .rest)
+        XCTAssertEqual(snap.elapsedInSegment, 5, accuracy: 0.001)
+        XCTAssertEqual(snap.remainingInSegment, 15, accuracy: 0.001)
+        XCTAssertEqual(engine.plan.totalDuration, 60)
+        XCTAssertEqual(engine.plan.segments[0].duration, 20)
+        XCTAssertEqual(engine.plan.segments[2].duration, 20)
+        // The next work starts 10 s later than before.
+        XCTAssertEqual(engine.snapshot(at: 39.9).segment?.kind, .rest)
+        XCTAssertEqual(engine.snapshot(at: 40.1).segment?.kind, .work)
+    }
+
+    func testAddingTimeWhilePausedKeepsPosition() {
+        var engine = TimerEngine(plan: plan())
+        engine.start(at: 0)
+        engine.pause(at: 12)
+        engine.extendCurrentSegment(by: 30, at: 100)
+        let snap = engine.snapshot(at: 200)
+        XCTAssertEqual(snap.status, .paused)
+        XCTAssertEqual(snap.elapsed, 12, accuracy: 0.001)
+        XCTAssertEqual(snap.remainingInSegment, 38, accuracy: 0.001)
+    }
+
+    func testNothingToExtendWhenIdleOrFinished() {
+        var engine = TimerEngine(plan: plan())
+        XCTAssertFalse(engine.extendCurrentSegment(by: 10, at: 0))
+        engine.start(at: 0)
+        engine.update(at: 100)
+        XCTAssertFalse(engine.extendCurrentSegment(by: 10, at: 100))
+        XCTAssertEqual(engine.plan.totalDuration, 50)
+    }
+}

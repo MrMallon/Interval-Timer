@@ -25,6 +25,8 @@ public struct CueSettings: Codable, Hashable, Sendable {
     /// The speech voice the user picked (`AVSpeechSynthesisVoice.identifier`).
     /// `nil` means automatic: the best-quality voice installed for their language.
     public var voiceIdentifier: String?
+    /// Which set of beeps plays.
+    public var beepStyle: BeepStyle
 
     public init(
         beeps: Bool = true,
@@ -37,7 +39,8 @@ public struct CueSettings: Codable, Hashable, Sendable {
         flash: Bool = true,
         haptics: Bool = true,
         duckMusic: Bool = false,
-        voiceIdentifier: String? = nil
+        voiceIdentifier: String? = nil,
+        beepStyle: BeepStyle = .classic
     ) {
         self.beeps = beeps
         self.voice = voice
@@ -50,6 +53,7 @@ public struct CueSettings: Codable, Hashable, Sendable {
         self.haptics = haptics
         self.duckMusic = duckMusic
         self.voiceIdentifier = voiceIdentifier
+        self.beepStyle = beepStyle
     }
 
     /// Missing keys fall back to their defaults, so settings saved by an older
@@ -68,7 +72,9 @@ public struct CueSettings: Codable, Hashable, Sendable {
             flash: try c.decodeIfPresent(Bool.self, forKey: .flash) ?? d.flash,
             haptics: try c.decodeIfPresent(Bool.self, forKey: .haptics) ?? d.haptics,
             duckMusic: try c.decodeIfPresent(Bool.self, forKey: .duckMusic) ?? d.duckMusic,
-            voiceIdentifier: try c.decodeIfPresent(String.self, forKey: .voiceIdentifier)
+            voiceIdentifier: try c.decodeIfPresent(String.self, forKey: .voiceIdentifier),
+            // An unknown style (from a newer version) falls back to classic.
+            beepStyle: (try? c.decodeIfPresent(BeepStyle.self, forKey: .beepStyle)) ?? d.beepStyle
         )
     }
 
@@ -77,6 +83,16 @@ public struct CueSettings: Codable, Hashable, Sendable {
     /// True when nothing audible is enabled; the app then leaves the audio
     /// session completely alone so the user's music is never touched.
     public var isSilent: Bool { !beeps && !voice && !ticking }
+}
+
+/// The sound set used for beeps.
+public enum BeepStyle: String, Codable, CaseIterable, Sendable {
+    /// Clean electronic beeps.
+    case classic
+    /// Lower, rounder tones that fade out.
+    case soft
+    /// A ringing boxing bell: one ding to start work, two to rest, three to finish.
+    case bell
 }
 
 /// Something that should happen at a moment in the workout.

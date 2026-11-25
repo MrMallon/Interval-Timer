@@ -10,14 +10,17 @@ final class AudioSessionTests: XCTestCase {
     private var session: AVAudioSession { AVAudioSession.sharedInstance() }
 
     override func setUp() async throws {
-        // Start each test from a neutral category, as if no workout had run.
+        // Start each test from a neutral category, as if no workout had run
+        // (after any previous test's queued deactivation has finished).
+        await AudioCuePlayer().settle()
         try session.setCategory(.ambient)
     }
 
-    func testDefaultSettingsMixWithMusicAndNeverDuck() {
+    func testDefaultSettingsMixWithMusicAndNeverDuck() async {
         let player = AudioCuePlayer()
         player.activate(settings: CueSettings())
         defer { player.deactivate() }
+        await player.settle()
 
         XCTAssertTrue(player.isSessionActive)
         XCTAssertEqual(session.category, .playback, "Playback category is required to keep sounding on a locked screen")
@@ -25,18 +28,20 @@ final class AudioSessionTests: XCTestCase {
         XCTAssertFalse(session.categoryOptions.contains(.duckOthers), "Must not lower the user's music by default")
     }
 
-    func testToneEngineRunsSoTheTimerSurvivesTheLockScreen() {
+    func testToneEngineRunsSoTheTimerSurvivesTheLockScreen() async {
         let player = AudioCuePlayer()
         player.activate(settings: CueSettings())
         defer { player.deactivate() }
+        await player.settle()
 
         XCTAssertTrue(player.isEngineRunning, "The always-on tone engine is what keeps the app running in the background")
     }
 
-    func testAllSoundsOffNeverTouchesTheAudioSession() {
+    func testAllSoundsOffNeverTouchesTheAudioSession() async {
         let player = AudioCuePlayer()
         player.activate(settings: CueSettings(beeps: false, voice: false, ticking: false))
         defer { player.deactivate() }
+        await player.settle()
 
         XCTAssertFalse(player.isSessionActive)
         XCTAssertEqual(session.category, .ambient, "With every sound off the app must leave audio alone")
@@ -46,6 +51,7 @@ final class AudioSessionTests: XCTestCase {
         let player = AudioCuePlayer()
         player.activate(settings: CueSettings(voice: true, duckMusic: false))
         defer { player.deactivate() }
+        await player.settle()
 
         player.speak("Work")
         try await Task.sleep(nanoseconds: 300_000_000)
@@ -56,9 +62,11 @@ final class AudioSessionTests: XCTestCase {
         let player = AudioCuePlayer()
         player.activate(settings: CueSettings(voice: true, duckMusic: true))
         defer { player.deactivate() }
+        await player.settle()
 
         XCTAssertFalse(session.categoryOptions.contains(.duckOthers), "No ducking before anything is said")
         player.speak("Rest")
+        await player.settle()
         XCTAssertTrue(session.categoryOptions.contains(.duckOthers), "Music lowers while the voice speaks")
 
         try await waitUntil(10, "Music volume was never restored after speaking") {

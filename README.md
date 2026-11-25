@@ -21,7 +21,12 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Pale colours mode, keep-screen-on, haptics
 - Live Activity: the countdown, phase and round on the Lock Screen and in the Dynamic Island
 - Quick start widget for the Home Screen: tap a timer to start it
-- Siri and Shortcuts: "Start Tabata in Interval Timer"
+- Siri and Shortcuts: "Start Tabata in Interval Timer", "Repeat my last workout in Interval Timer"
+- During a workout: tap anywhere to pause or resume, swipe to skip, **+10** adds time to the current interval, hold ✕ to end without the confirmation
+- Beep sounds: Classic, Soft or Boxing bell
+- Speaking voice: automatically the best voice installed, or pick one (Enhanced and Premium voices sound far more natural)
+- Share a timer as a QR code or a small `.intervaltimer` file (AirDrop, Messages, Mail); it opens in the editor on the other phone
+- Optional Apple Health logging (off by default; writes workouts, never reads)
 
 ## Try it on your iPhone (no Mac needed)
 
@@ -99,7 +104,7 @@ The Watch app runs on its own (no iPhone needed) and also syncs with the iPhone:
 - Timers made or edited on either device appear on the other; deletions sync too (newest change wins).
 - Workouts finished on the watch show up in the iPhone's History, and the other way round.
 - Cues are wrist taps with their system sounds, plus the same spoken guidance as the iPhone.
-- A HealthKit workout session keeps the timer running with your wrist down. Nothing is written to Health.
+- A HealthKit workout session keeps the timer running with your wrist down. Nothing is written to Health unless you turn on **Save to Apple Health** in the Watch app's settings; then the workout is saved with heart rate and calories. The iPhone saves only workouts run on the iPhone, so nothing is counted twice.
 
 To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch or a watch simulator. Signing needs the HealthKit capability, which `project.yml` already declares.
 
@@ -108,6 +113,6 @@ To run it, pick the **IntervalTimerWatch** scheme in Xcode with a paired watch o
 1. MVP — iPhone and iPad (done)
 2. Apple Watch app, accessibility pass, 15 languages (done)
 3. Live Activity and Dynamic Island, Quick start widget, Siri shortcuts (done)
-4. Optional Apple Health logging
+4. Optional Apple Health logging, sharing, beep sounds, workout gestures (done)
 
 No cloud sync is planned: everything stays on your devices.

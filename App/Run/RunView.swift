@@ -15,6 +15,8 @@ struct RunView: View {
     @State private var confirmEnd = false
     @State private var showSummary = false
     @State private var recordSaved = false
+    /// 0...1 while the end button is held down.
+    @State private var endHoldProgress = 0.0
 
     init(session: RunSession) {
         _session = State(initialValue: session)
@@ -68,10 +70,7 @@ struct RunView: View {
             }
         }
         .confirmationDialog("End this workout?", isPresented: $confirmEnd, titleVisibility: .visible) {
-            Button("End workout", role: .destructive) {
-                session.end()
-                finishAndShowSummary()
-            }
+            Button("End workout", role: .destructive) { endNow() }
             Button("Keep going", role: .cancel) {}
         } message: {
             Text("Your progress so far is saved to History.")
@@ -113,36 +112,98 @@ struct RunView: View {
             }
             .padding(.horizontal, 20)
             .frame(width: size.width, height: size.height)
+            // Anywhere that isn't a button: tap to pause or resume, swipe to skip.
+            // Big targets for sweaty hands; the buttons below stay for VoiceOver.
+            .contentShape(Rectangle())
+            .onTapGesture { session.togglePause() }
+            .gesture(
+                DragGesture(minimumDistance: 40)
+                    .onEnded { value in
+                        let dx = value.translation.width
+                        guard abs(dx) > abs(value.translation.height) * 1.5 else { return }
+                        if dx < 0 { session.skipForward() } else { session.skipBackward() }
+                    }
+            )
         }
     }
 
     private var topBar: some View {
         HStack {
-            Button {
-                if session.isFinished { close() } else { confirmEnd = true }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.title3.bold())
-                    .frame(width: 44, height: 44)
-                    .background(PhaseStyle.controlFill, in: Circle())
-            }
-            .accessibilityLabel("End workout")
-            .accessibilityIdentifier("endButton")
+            endButton
+                .frame(width: 60, alignment: .leading)
 
             Spacer()
             VStack(spacing: 2) {
                 Text(session.name)
                     .font(.headline)
                     .lineLimit(1)
-                Text(String(localized: "\(TimeFormat.countdown(snapshot.totalRemaining)) left"))
-                    .font(.subheadline.monospacedDigit())
+                    .minimumScaleFactor(0.7)
+                if session.isPaused {
+                    Text("Paused")
+                        .font(.subheadline.weight(.heavy))
+                        .textCase(.uppercase)
+                        .accessibilityIdentifier("pausedLabel")
+                } else {
+                    Text(String(localized: "\(TimeFormat.countdown(snapshot.totalRemaining)) left"))
+                        .font(.subheadline.monospacedDigit())
+                }
             }
             .accessibilityElement(children: .combine)
             Spacer()
-            Color.clear.frame(width: 44, height: 44)
+            Button {
+                session.addTime(10)
+            } label: {
+                Text(verbatim: "+10")
+                    .font(.headline.monospacedDigit())
+                    .frame(minWidth: 44, minHeight: 44)
+                    .padding(.horizontal, 6)
+                    .background(PhaseStyle.controlFill, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(session.isFinished)
+            .accessibilityLabel("Add 10 seconds")
+            .accessibilityIdentifier("addTimeButton")
+            .frame(width: 60, alignment: .trailing)
         }
         .padding(.top, 8)
     }
+
+    /// Tap: asks first. Touch and hold: ends straight away, with a ring filling up.
+    private var endButton: some View {
+        Image(systemName: "xmark")
+            .font(.title3.bold())
+            .frame(width: 44, height: 44)
+            .background(PhaseStyle.controlFill, in: Circle())
+            .overlay {
+                Circle()
+                    .trim(from: 0, to: endHoldProgress)
+                    .stroke(.foreground, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(2)
+            }
+            .contentShape(Circle())
+            .onTapGesture {
+                if session.isFinished { close() } else { confirmEnd = true }
+            }
+            .onLongPressGesture(minimumDuration: 0.8) {
+                endHoldProgress = 0
+                if session.isFinished { close() } else { endNow() }
+            } onPressingChanged: { pressing in
+                if pressing {
+                    withAnimation(.linear(duration: 0.8)) { endHoldProgress = 1 }
+                } else {
+                    withAnimation(.easeOut(duration: 0.15)) { endHoldProgress = 0 }
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("End workout")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                if session.isFinished { close() } else { confirmEnd = true }
+            }
+            .accessibilityIdentifier("endButton")
+    }
+
 
     private var phaseHeader: some View {
         HStack(spacing: 10) {
@@ -183,17 +244,27 @@ struct RunView: View {
         }
     }
 
+    /// "Next: …" while running; how to resume while paused. One text that changes,
+    /// so pausing doesn't add or remove anything on screen.
     @ViewBuilder
     private var nextUp: some View {
-        if let next = snapshot.nextSegment {
-            Text(String(localized: "Next: \(PhaseStyle.name(for: next)) · \(TimeFormat.clock(next.duration))"))
+        if let line = nextUpLine {
+            Text(line)
                 .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
                 .padding(.top, 4)
-        } else if snapshot.segment != nil {
-            Text("Last interval")
-                .font(.title3.weight(.semibold))
-                .padding(.top, 4)
+                .accessibilityIdentifier(session.isPaused ? "pausedHint" : "nextUp")
         }
+    }
+
+    private var nextUpLine: String? {
+        if session.isPaused {
+            return String(localized: "Tap to resume")
+        }
+        if let next = snapshot.nextSegment {
+            return String(localized: "Next: \(PhaseStyle.name(for: next)) · \(TimeFormat.clock(next.duration))")
+        }
+        return snapshot.segment != nil ? String(localized: "Last interval") : nil
     }
 
     private var controls: some View {
@@ -230,6 +301,11 @@ struct RunView: View {
         }
     }
 
+    private func endNow() {
+        session.end()
+        finishAndShowSummary()
+    }
+
     private func finishAndShowSummary() {
         saveRecordIfNeeded()
         withAnimation { showSummary = true }
@@ -240,7 +316,10 @@ struct RunView: View {
         recordSaved = true
         let record = session.makeRecord()
         modelContext.insert(record)
+        try? modelContext.save()
         SyncCoordinator.shared.send(record)
+        AppPersistence.refreshExternalViews()
+        if settings.saveToHealth { HealthLogger.save(record) }
     }
 
     private func close() {

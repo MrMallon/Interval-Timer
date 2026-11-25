@@ -89,16 +89,32 @@ final class VoicePreviewer: NSObject, AVSpeechSynthesizerDelegate {
 
     func play(voice: AVSpeechSynthesisVoice?) {
         speech.stopSpeaking(at: .immediate)
-        // .playback so the sample is heard with the ring/silent switch on.
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // .playback so the sample is heard with the ring/silent switch on. Session
+        // changes can block, so they run off the main thread; speech waits for them.
         let utterance = AVSpeechUtterance(string: String(localized: "Workout complete. Great job!"))
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         utterance.voice = voice
+        pending = utterance
+        Self.sessionQueue.async { [weak self] in
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try? AVAudioSession.sharedInstance().setActive(true)
+            Task { @MainActor in self?.speakPending() }
+        }
+    }
+
+    /// The sample waiting for the audio session; only the latest tap is spoken.
+    private var pending: AVSpeechUtterance?
+
+    private func speakPending() {
+        guard let utterance = pending else { return }
+        pending = nil
         speech.speak(utterance)
     }
 
+    private static let sessionQueue = DispatchQueue(label: "com.mrmallon.intervaltimer.voicepreview")
+
     func stop() {
+        pending = nil
         speech.stopSpeaking(at: .immediate)
     }
 
@@ -112,6 +128,8 @@ final class VoicePreviewer: NSObject, AVSpeechSynthesizerDelegate {
 
     private func release() {
         guard !speech.isSpeaking else { return }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Self.sessionQueue.async {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 }

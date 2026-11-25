@@ -12,7 +12,8 @@ final class RunSession: Identifiable {
     let name: String
     let color: ThemeColor
     let definition: TimerDefinition
-    let plan: WorkoutPlan
+    /// Grows when the user adds time to an interval.
+    private(set) var plan: WorkoutPlan
     let templateID: UUID?
 
     private(set) var snapshot: TimerSnapshot
@@ -118,6 +119,18 @@ final class RunSession: Identifiable {
         process(at: now, force: true)
     }
 
+    /// "+10 s": lengthens the interval running now.
+    func addTime(_ seconds: Int) {
+        let now = Self.now()
+        guard engine.extendCurrentSegment(by: seconds, at: now) else { return }
+        plan = engine.plan
+        // Re-plan cues for the longer interval; nothing already heard is replayed.
+        cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
+        cursor.skip(to: engine.elapsed(at: now))
+        if settings.cue.haptics { haptics.tick() }
+        process(at: now, force: true)
+    }
+
     /// Ends the workout early.
     func end() {
         guard !isFinished else {
@@ -208,19 +221,20 @@ final class RunSession: Identifiable {
 
     private func perform(_ event: CueEvent) {
         let cue = settings.cue
+        let tones = ToneSet.make(cue.beepStyle)
         switch event {
         case .segmentStart(let index):
             guard plan.segments.indices.contains(index) else { return }
             let segment = plan.segments[index]
             if cue.flash { flashCount += 1 }
             if cue.haptics { haptics.phaseChange() }
-            if cue.beeps { audio.play(tone: segment.kind == .work ? .go : .restStart) }
+            if cue.beeps { audio.play(tones: segment.kind == .work ? tones.go : tones.restStart) }
             if cue.voice, let line = VoiceScript.line(for: event, plan: plan) { audio.speak(line) }
 
         case .countdown:
             if cue.haptics { haptics.tick() }
             if cue.beeps {
-                audio.play(tone: .countdown)
+                audio.play(tones: tones.countdown)
             } else if cue.voice, let line = VoiceScript.line(for: event, plan: plan) {
                 audio.speak(line)
             }
@@ -236,12 +250,12 @@ final class RunSession: Identifiable {
             }
 
         case .tick:
-            if cue.ticking { audio.play(tone: .tick) }
+            if cue.ticking { audio.play(tones: tones.tick) }
 
         case .finished:
             if cue.flash { flashCount += 1 }
             if cue.haptics { haptics.finished() }
-            if cue.beeps { audio.play(tones: ToneSynth.Tone.finished) }
+            if cue.beeps { audio.play(tones: tones.finished) }
             if cue.voice, let line = VoiceScript.line(for: event, plan: plan) { audio.speak(line, interrupt: false) }
         }
     }

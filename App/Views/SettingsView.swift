@@ -4,6 +4,8 @@ import TimerKit
 
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var settings
+    @State private var soundPreview = SoundPreview()
+    @State private var healthDenied = HealthLogger.isDenied
 
     var body: some View {
         @Bindable var settings = settings
@@ -12,6 +14,15 @@ struct SettingsView: View {
             Form {
                 Section {
                     Toggle("Beeps", isOn: $settings.cue.beeps)
+                    Picker("Beep sound", selection: $settings.cue.beepStyle) {
+                        ForEach(BeepStyle.allCases, id: \.self) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    .disabled(!settings.cue.beeps)
+                    .onChange(of: settings.cue.beepStyle) { _, style in
+                        soundPreview.play(style)
+                    }
                     Toggle("Voice guidance", isOn: $settings.cue.voice)
                     Toggle("Ticking every second", isOn: $settings.cue.ticking)
                     Stepper(value: $settings.cue.countdownSeconds, in: 0...10) {
@@ -44,6 +55,28 @@ struct SettingsView: View {
                 }
                 .disabled(!settings.cue.voice)
 
+                if HealthLogger.isAvailable {
+                    Section {
+                        Toggle("Save workouts to Apple Health", isOn: $settings.saveToHealth)
+                            .onChange(of: settings.saveToHealth) { _, on in
+                                guard on else { return }
+                                Task {
+                                    let allowed = await HealthLogger.requestAccess()
+                                    healthDenied = !allowed
+                                    if !allowed { settings.saveToHealth = false }
+                                }
+                            }
+                    } header: {
+                        Text("Apple Health")
+                    } footer: {
+                        if healthDenied {
+                            Text("Health access is off. You can allow it in the Health app.")
+                        } else {
+                            Text("Adds each finished workout of 30 s or longer to Health. Interval Timer never reads your health data.")
+                        }
+                    }
+                }
+
                 Section("Screen") {
                     Toggle("Flash on phase change", isOn: $settings.cue.flash)
                     Toggle("Pale colours", isOn: $settings.paleColors)
@@ -70,6 +103,39 @@ struct SettingsView: View {
             return String(localized: "Automatic")
         }
         return voice.name
+    }
+}
+
+extension BeepStyle {
+    var title: LocalizedStringKey {
+        switch self {
+        case .classic: return "Classic"
+        case .soft: return "Soft"
+        case .bell: return "Boxing bell"
+        }
+    }
+}
+
+/// Plays a style's "work starts" sound once, so people can hear what they picked.
+@MainActor
+final class SoundPreview {
+    private let player = AudioCuePlayer()
+    private var release: Task<Void, Never>?
+
+    func play(_ style: BeepStyle) {
+        release?.cancel()
+        player.activate(settings: CueSettings(beeps: true, voice: false, ticking: false))
+        let tones = ToneSet.make(style)
+        player.play(tones: tones.countdown + tones.go.map { tone in
+            var later = tone
+            later.delay += 0.5
+            return later
+        })
+        release = Task { [player] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            player.deactivate()
+        }
     }
 }
 

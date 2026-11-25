@@ -22,6 +22,13 @@ struct WatchSettingsView: View {
                 Toggle("What's next", isOn: $settings.cue.announceNext)
             }
             .disabled(!settings.cue.voice)
+            Section {
+                Toggle("Save to Apple Health", isOn: $settings.saveToHealth)
+            } header: {
+                Text("Apple Health")
+            } footer: {
+                Text("Saves each workout with heart rate and calories.")
+            }
             Section("Screen") {
                 Toggle("Flash", isOn: $settings.cue.flash)
                 Toggle("Pale colours", isOn: $settings.paleColors)

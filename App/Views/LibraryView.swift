@@ -27,6 +27,7 @@ struct LibraryView: View {
     @State private var showingPresets = false
     @State private var pickedPreset: Preset?
     @State private var activeRun: RunSession?
+    @State private var sharing: TimerTemplate?
 
     var body: some View {
         NavigationStack {
@@ -69,17 +70,29 @@ struct LibraryView: View {
                     showingPresets = false
                 }
             }
+            .sheet(item: $sharing) { template in
+                ShareTimerView(timer: SharedTimer(name: template.name, color: template.color, definition: template.definition))
+                    .presentationDetents([.large])
+            }
             .fullScreenCover(item: $activeRun) { session in
                 RunView(session: session)
             }
             .onChange(of: router.pendingStart, initial: true) { _, id in
                 startPending(id)
             }
+            .onChange(of: router.pendingImport != nil, initial: true) { _, _ in
+                openPendingImport()
+            }
+            .onChange(of: router.pendingRepeat, initial: true) { _, _ in
+                repeatPending()
+            }
             .onChange(of: templates.count) { _, _ in
                 startPending(router.pendingStart)
             }
             .onChange(of: scenePhase) { _, _ in
                 startPending(router.pendingStart)
+                openPendingImport()
+                repeatPending()
             }
         }
     }
@@ -100,6 +113,34 @@ struct LibraryView: View {
         start(template)
     }
 
+    /// Runs the most recent workout again (Siri, widget). Does nothing mid-workout.
+    private func repeatPending() {
+        guard router.pendingRepeat, scenePhase == .active else { return }
+        router.pendingRepeat = false
+        guard activeRun == nil,
+              let record = AppPersistence.lastWorkout(),
+              let definition = record.definition else { return }
+        editorTarget = nil
+        showingPresets = false
+        sharing = nil
+        activeRun = RunSession(
+            name: record.name,
+            color: record.color,
+            definition: definition,
+            templateID: nil,
+            settings: settings
+        )
+    }
+
+    /// A shared timer arrived: open it in the editor so the user can look it over and save it.
+    private func openPendingImport() {
+        guard let timer = router.pendingImport, scenePhase == .active, activeRun == nil else { return }
+        router.pendingImport = nil
+        showingPresets = false
+        sharing = nil
+        editorTarget = .new(name: timer.name, definition: timer.definition, color: timer.themeColor)
+    }
+
     private var list: some View {
         List {
             ForEach(templates) { template in
@@ -118,11 +159,16 @@ struct LibraryView: View {
                             Label("Duplicate", systemImage: "plus.square.on.square")
                         }
                         .tint(.gray)
+                        Button { sharing = template } label: {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.indigo)
                     }
                     .contextMenu {
                         Button("Start", systemImage: "play.fill") { start(template) }
                         Button("Edit", systemImage: "pencil") { editorTarget = .existing(template) }
                         Button("Duplicate", systemImage: "plus.square.on.square") { duplicate(template) }
+                        Button("Share", systemImage: "square.and.arrow.up") { sharing = template }
                         Button("Delete", systemImage: "trash", role: .destructive) { delete(template) }
                     }
             }

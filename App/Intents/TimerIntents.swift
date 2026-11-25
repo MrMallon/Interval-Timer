@@ -62,6 +62,19 @@ struct StartTimerIntent: AppIntent {
     }
 }
 
+/// "Repeat my last workout in Interval Timer".
+struct RepeatLastWorkoutIntent: AppIntent {
+    static var title: LocalizedStringResource = "Repeat Last Workout"
+    static var description = IntentDescription("Opens Interval Timer and starts your most recent workout again.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        AppRouter.shared.repeatLast()
+        return .result()
+    }
+}
+
 struct IntervalTimerShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -73,6 +86,16 @@ struct IntervalTimerShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Timer",
             systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: RepeatLastWorkoutIntent(),
+            phrases: [
+                "Repeat my last workout in \(.applicationName)",
+                "Do my last workout again in \(.applicationName)",
+                "Start my last timer in \(.applicationName)"
+            ],
+            shortTitle: "Repeat Last Workout",
+            systemImageName: "arrow.counterclockwise"
         )
     }
 

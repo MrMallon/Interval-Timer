@@ -34,7 +34,8 @@ public struct TimerEngine: Sendable {
         case finished
     }
 
-    public let plan: WorkoutPlan
+    /// Changes only when the user adds time to the current interval.
+    public private(set) var plan: WorkoutPlan
     public private(set) var status: Status = .idle
     /// Elapsed seconds banked before the current run began.
     private var banked: TimeInterval = 0
@@ -127,6 +128,22 @@ public struct TimerEngine: Sendable {
             runStartedAt = now
         }
         update(at: now)
+    }
+
+    /// Adds time to the segment running now ("+10 s"), keeping the position in it.
+    /// Later segments move back by the same amount. Returns false when nothing is running.
+    @discardableResult
+    public mutating func extendCurrentSegment(by seconds: Int, at now: TimeInterval) -> Bool {
+        guard status == .running || status == .paused, seconds > 0 else { return false }
+        let position = elapsed(at: now)
+        guard let index = plan.segmentIndex(at: position) else { return false }
+        var segments = plan.segments
+        segments[index].duration += seconds
+        plan = WorkoutPlan(name: plan.name, segments: segments)
+        // Re-anchor so elapsed is unchanged under the longer plan.
+        banked = position
+        if status == .running { runStartedAt = now }
+        return true
     }
 
     public mutating func reset() {

@@ -10,6 +10,8 @@ final class SettingsStore {
     var paleColors: Bool { didSet { save() } }
     /// Keep the screen on while a workout runs.
     var keepScreenAwake: Bool { didSet { save() } }
+    /// Save finished workouts to Apple Health. Off until the user turns it on.
+    var saveToHealth: Bool { didSet { save() } }
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private static let key = "settings.v1"
@@ -18,6 +20,23 @@ final class SettingsStore {
         var cue: CueSettings
         var paleColors: Bool
         var keepScreenAwake: Bool
+        var saveToHealth: Bool
+
+        init(cue: CueSettings, paleColors: Bool, keepScreenAwake: Bool, saveToHealth: Bool) {
+            self.cue = cue
+            self.paleColors = paleColors
+            self.keepScreenAwake = keepScreenAwake
+            self.saveToHealth = saveToHealth
+        }
+
+        /// Settings saved by older versions lack newer keys; those get defaults.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            cue = try c.decodeIfPresent(CueSettings.self, forKey: .cue) ?? .default
+            paleColors = try c.decodeIfPresent(Bool.self, forKey: .paleColors) ?? false
+            keepScreenAwake = try c.decodeIfPresent(Bool.self, forKey: .keepScreenAwake) ?? true
+            saveToHealth = try c.decodeIfPresent(Bool.self, forKey: .saveToHealth) ?? false
+        }
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -27,15 +46,17 @@ final class SettingsStore {
             cue = stored.cue
             paleColors = stored.paleColors
             keepScreenAwake = stored.keepScreenAwake
+            saveToHealth = stored.saveToHealth
         } else {
             cue = .default
             paleColors = false
             keepScreenAwake = true
+            saveToHealth = false
         }
     }
 
     private func save() {
-        let stored = Stored(cue: cue, paleColors: paleColors, keepScreenAwake: keepScreenAwake)
+        let stored = Stored(cue: cue, paleColors: paleColors, keepScreenAwake: keepScreenAwake, saveToHealth: saveToHealth)
         if let data = try? JSONEncoder().encode(stored) {
             defaults.set(data, forKey: Self.key)
         }

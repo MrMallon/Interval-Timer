@@ -43,9 +43,25 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes: [audio]
         NSSupportsLiveActivities: true
+        NSHealthShareUsageDescription: Interval Timer doesn't read your health data.
+        NSHealthUpdateUsageDescription: When you turn on Save to Apple Health, Interval Timer adds your finished workouts to Health.
         CFBundleURLTypes:
           - CFBundleURLName: com.mrmallon.intervaltimer
             CFBundleURLSchemes: [intervaltimer]
+        # Shared timers: "Tabata.intervaltimer" files open in the app.
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.mrmallon.intervaltimer.timer
+            UTTypeDescription: Interval Timer
+            UTTypeConformsTo: [public.json]
+            UTTypeTagSpecification:
+              public.filename-extension: [intervaltimer]
+              public.mime-type: [application/x-intervaltimer]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Interval Timer
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes: [com.mrmallon.intervaltimer.timer]
+        LSSupportsOpeningDocumentsInPlace: false
         UILaunchScreen:
           UIColorName: AccentColor
         UIApplicationSceneManifest:
@@ -63,6 +79,8 @@ targets:
       path: App/IntervalTimer.entitlements
       properties:
         com.apple.security.application-groups: [group.com.mrmallon.intervaltimer]
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mrmallon.intervaltimer
@@ -120,7 +138,7 @@ targets:
         WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes: [workout-processing]
         NSHealthShareUsageDescription: Interval Timer runs a workout session so your timer keeps going with your wrist down. It doesn't read your health data.
-        NSHealthUpdateUsageDescription: Interval Timer runs a workout session so your timer keeps going with your wrist down.
+        NSHealthUpdateUsageDescription: Interval Timer runs a workout session so your timer keeps going with your wrist down. When you turn on Save to Apple Health, it also saves the workout, with heart rate and calories.
     entitlements:
       path: Watch/IntervalTimerWatch.entitlements
       properties:
