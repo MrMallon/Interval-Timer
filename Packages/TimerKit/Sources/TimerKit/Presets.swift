@@ -62,6 +62,18 @@ public struct Preset: Identifiable, Hashable, Sendable {
             name: "Pyramid",
             summary: "20-30-40-50-40-30-20 s, 15 s rest",
             definition: .custom(Preset.pyramid(steps: [20, 30, 40, 50, 40, 30, 20], rest: 15, prepare: 10))
+        ),
+        Preset(
+            id: "amrap-12",
+            name: "AMRAP 12",
+            summary: "As many rounds as possible in 12 min",
+            definition: .amrap(AmrapConfig(prepare: 10, work: 720, sets: 1, rest: 0, coolDown: 0))
+        ),
+        Preset(
+            id: "for-time",
+            name: "For Time",
+            summary: "Finish as fast as you can, 20 min cap",
+            definition: .forTime(ForTimeConfig(prepare: 10, timeCap: 1200))
         )
     ]
 

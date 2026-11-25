@@ -91,18 +91,26 @@ struct RunView: View {
 
                 VStack(spacing: isLandscape ? 4 : 12) {
                     phaseHeader
-                    Text(TimeFormat.countdown(snapshot.remainingInSegment))
+                    Text(clockText)
                         .font(.system(size: digitSize, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
-                        .contentTransition(.numericText(countsDown: true))
+                        .contentTransition(.numericText(countsDown: !session.isWaitingForDone))
                         .accessibilityLabel(countdownAccessibilityLabel)
                         .accessibilityIdentifier("countdown")
                     counters
-                    SegmentProgressBar(progress: snapshot.segmentProgress)
-                        .frame(height: 8)
-                        .padding(.horizontal, 32)
+                    if snapshot.segment?.isOpenEnded != true {
+                        SegmentProgressBar(progress: snapshot.segmentProgress)
+                            .frame(height: 8)
+                            .padding(.horizontal, 32)
+                    }
+                    if let cap = timeCapLine {
+                        Text(cap)
+                            .font(.headline.monospacedDigit())
+                            .accessibilityIdentifier("timeCap")
+                    }
+                    actionButton
                     nextUp
                 }
 
@@ -143,6 +151,11 @@ struct RunView: View {
                         .font(.subheadline.weight(.heavy))
                         .textCase(.uppercase)
                         .accessibilityIdentifier("pausedLabel")
+                } else if session.plan.openIndex != nil {
+                    // How long is left isn't known until the user taps Done.
+                    Text(String(localized: "\(TimeFormat.clock(Int(snapshot.elapsed))) so far",
+                                comment: "Workout time so far, e.g. 12:34 so far"))
+                        .font(.subheadline.monospacedDigit())
                 } else {
                     Text(String(localized: "\(TimeFormat.countdown(snapshot.totalRemaining)) left"))
                         .font(.subheadline.monospacedDigit())
@@ -160,7 +173,7 @@ struct RunView: View {
                     .background(PhaseStyle.controlFill, in: Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(session.isFinished)
+            .disabled(session.isFinished || snapshot.segment?.isOpenEnded == true)
             .accessibilityLabel("Add 10 seconds")
             .accessibilityIdentifier("addTimeButton")
             .frame(width: 60, alignment: .trailing)
@@ -227,10 +240,10 @@ struct RunView: View {
     private var counters: some View {
         let plan = session.plan
         HStack(spacing: 12) {
-            if plan.roundsPerCycle > 0 {
+            if let counter = (snapshot.segment ?? plan.segments.first).flatMap({ plan.roundCounter(for: $0) }) {
                 CounterChip(
                     title: "Round",
-                    value: "\(max(1, snapshot.segment?.round ?? 1))/\(plan.roundsPerCycle)"
+                    value: "\(counter.round)/\(counter.total)"
                 )
                 .accessibilityIdentifier("roundCounter")
             }
@@ -262,6 +275,9 @@ struct RunView: View {
             return String(localized: "Tap to resume")
         }
         if let next = snapshot.nextSegment {
+            if next.untilTapped {
+                return String(localized: "Next: \(PhaseStyle.name(for: next))")
+            }
             return String(localized: "Next: \(PhaseStyle.name(for: next)) · \(TimeFormat.clock(next.duration))")
         }
         return snapshot.segment != nil ? String(localized: "Last interval") : nil
@@ -280,15 +296,92 @@ struct RunView: View {
             ) {
                 session.togglePause()
             }
-            ControlButton(systemImage: "forward.end.fill", size: 64, label: "Next interval", identifier: "nextButton") {
+            ControlButton(
+                systemImage: session.isWaitingForDone ? "checkmark" : "forward.end.fill",
+                size: 64,
+                label: session.isWaitingForDone ? "Done" : "Next interval",
+                identifier: "nextButton"
+            ) {
                 session.skipForward()
             }
         }
     }
 
+    /// Counts down, or up on an interval that waits for Done.
+    private var clockText: String {
+        session.isWaitingForDone
+            ? TimeFormat.clock(Int(snapshot.elapsedInSegment))
+            : TimeFormat.countdown(snapshot.remainingInSegment)
+    }
+
+    /// "Time cap 20:00" on a Done interval that has a cap.
+    private var timeCapLine: String? {
+        guard let segment = snapshot.segment, segment.untilTapped, segment.duration > 0 else { return nil }
+        return String(localized: "Time cap \(TimeFormat.clock(segment.duration))", comment: "Shown under a count-up clock, e.g. Time cap 20:00")
+    }
+
+    /// Big Done button, or the AMRAP round counter.
+    @ViewBuilder
+    private var actionButton: some View {
+        if session.isWaitingForDone, !session.isFinished {
+            Button {
+                session.skipForward()
+            } label: {
+                Label("Done", systemImage: "checkmark")
+                    .font(.title2.weight(.bold))
+                    .frame(minWidth: 200, minHeight: 64)
+                    .padding(.horizontal, 24)
+                    .background(PhaseStyle.controlFill, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+            .accessibilityIdentifier("doneIntervalButton")
+        } else if snapshot.segment?.countsRounds == true || (session.plan.countsRounds && session.roundsCounted > 0) {
+            HStack(spacing: 12) {
+                Button {
+                    session.uncountRound()
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.title3.weight(.bold))
+                        .frame(width: 52, height: 52)
+                        .background(PhaseStyle.controlFill, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(session.roundsCounted == 0)
+                .accessibilityLabel("Take back a round")
+                .accessibilityIdentifier("uncountRoundButton")
+
+                Button {
+                    session.countRound()
+                } label: {
+                    VStack(spacing: 0) {
+                        Text(verbatim: "\(session.roundsCounted)")
+                            .font(.title.weight(.heavy).monospacedDigit())
+                            .contentTransition(.numericText())
+                        Text("+1 round")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .frame(minWidth: 160, minHeight: 64)
+                    .padding(.horizontal, 20)
+                    .background(PhaseStyle.controlFill, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(snapshot.segment?.countsRounds != true)
+                .accessibilityLabel(String(localized: "\(session.roundsCounted) rounds", comment: "AMRAP rounds counted so far"))
+                .accessibilityHint("Adds a round")
+                .accessibilityIdentifier("countRoundButton")
+            }
+            .padding(.top, 8)
+        }
+    }
+
     private var countdownAccessibilityLabel: String {
-        let seconds = Int(snapshot.remainingInSegment.rounded(.up))
         let phase = snapshot.segment.map { PhaseStyle.name(for: $0) } ?? ""
+        if session.isWaitingForDone {
+            let seconds = Int(snapshot.elapsedInSegment)
+            return phase + ", " + String(localized: "\(seconds) seconds so far", comment: "Count-up clock, read by VoiceOver")
+        }
+        let seconds = Int(snapshot.remainingInSegment.rounded(.up))
         return phase + ", " + String(localized: "\(seconds) seconds remaining")
     }
 

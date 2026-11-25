@@ -10,7 +10,11 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 
 - Simple timers: get ready, work, rest, rounds, cycles, rest between cycles, cool down
 - Custom timers: set every interval yourself (pyramids, ladders, named exercises)
-- Presets: Tabata, HIIT 40/20, EMOM, boxing, MMA, circuit, physio holds, pyramid
+- Repeat groups in custom timers: "these 3 exercises × 4", with their own round counter
+- "Until I tap Done" intervals: no countdown, the clock counts up and the timer moves on when you tap Done (or swipe), with an optional time cap. Good for "20 push-ups" or "run 400 m"
+- AMRAP: as many rounds as possible in a set time, tapping **+1 round** as you go; several sets with rest in between; rounds saved to History
+- For Time: work as fast as you can and tap Done, with an optional time cap
+- Presets: Tabata, HIIT 40/20, EMOM, boxing, MMA, circuit, physio holds, pyramid, AMRAP 12, For Time
 - Big colour-coded run screen with round and cycle counters, screen flash, skip and pause
 - Beeps, voice guidance, optional ticking, final countdown, "time left" markers, "next up" announcements
 - Runs on a locked screen and over your music; never ducks music unless you turn that on
@@ -19,7 +23,7 @@ Available in 15 languages: English, Dutch, French, German, Italian, Japanese, Ko
 - Interval stopwatch with laps
 - History with weekly totals and "start again"
 - Pale colours mode, keep-screen-on, haptics
-- Live Activity: the countdown, phase and round on the Lock Screen and in the Dynamic Island
+- Live Activity: the countdown, phase and round on the Lock Screen and in the Dynamic Island, with **Pause/Resume**, **Next** (or **Done**) and **+1 round** buttons, so there's no need to unlock the phone
 - Quick start widget for the Home Screen: tap a timer to start it
 - Siri and Shortcuts: "Start Tabata in Interval Timer", "Repeat my last workout in Interval Timer"
 - During a workout: tap anywhere to pause or resume, swipe to skip, **+10** adds time to the current interval, hold ✕ to end without the confirmation
@@ -54,8 +58,8 @@ cd Packages/TimerKit && swift test
 
 | Suite | What it covers | When it runs |
 | --- | --- | --- |
-| `Packages/TimerKit/Tests` (39 tests) | Timer maths, cue timing, stopwatch, presets, iPhone–Watch sync merging | Every push (quick check) |
-| `AppTests` (30 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, history, saved-timer edits, voice lines, widget links, Live Activity contents, Siri "Start Timer" | Simulator suite |
+| `Packages/TimerKit/Tests` (63 tests) | Timer maths, cue timing, "tap when done" intervals and time caps, repeat groups, AMRAP, stopwatch, presets, iPhone–Watch sync merging | Every push (quick check) |
+| `AppTests` (55 tests, in the iOS Simulator) | Plays alongside music and only lowers it while speaking (when turned on), all-sounds-off leaves audio alone, phone calls pause and resume, cues on time in a real workout, Done, For Time and AMRAP workouts, Lock Screen buttons, history, saved-timer edits, voice lines, widget links, Live Activity contents, Siri "Start Timer" | Simulator suite |
 | `UITests` (11 tests, in the iOS Simulator) | Library, create and edit a timer, presets, full workout, pause and skip, **keeps running and beeping in the background**, stopwatch, settings, the app in German and Japanese, Apple's accessibility audit on every screen, a widget link starting a timer with its Live Activity in the Dynamic Island | Simulator suite |
 | Translation check | Every string in the code is in `Shared/Localizable.xcstrings` and translated into all 14 languages | Every push (quick check) |
 

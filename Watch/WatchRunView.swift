@@ -65,29 +65,50 @@ struct WatchRunView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
 
-            Text(TimeFormat.countdown(snapshot.remainingInSegment))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .contentTransition(.numericText(countsDown: true))
-                .accessibilityLabel(String(localized: "\(Int(snapshot.remainingInSegment.rounded(.up))) seconds remaining"))
+            Group {
+                if session.isWaitingForDone {
+                    Text(TimeFormat.clock(Int(snapshot.elapsedInSegment)))
+                        .accessibilityLabel(String(localized: "\(Int(snapshot.elapsedInSegment)) seconds so far",
+                                                   comment: "Count-up clock, read by VoiceOver"))
+                } else {
+                    Text(TimeFormat.countdown(snapshot.remainingInSegment))
+                        .accessibilityLabel(String(localized: "\(Int(snapshot.remainingInSegment.rounded(.up))) seconds remaining"))
+                }
+            }
+            .font(.system(size: 54, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .contentTransition(.numericText(countsDown: !session.isWaitingForDone))
 
             HStack(spacing: 8) {
                 Text(counterText)
                     .font(.footnote.weight(.semibold))
                     .monospacedDigit()
-                Button {
-                    session.addTime(10)
-                } label: {
-                    Text(verbatim: "+10")
-                        .font(.footnote.weight(.bold).monospacedDigit())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(PhaseStyle.controlFill, in: Capsule())
+                if snapshot.segment?.countsRounds == true {
+                    Button {
+                        session.countRound()
+                    } label: {
+                        Text("+1 round")
+                            .font(.footnote.weight(.bold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(PhaseStyle.controlFill, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else if snapshot.segment?.isOpenEnded != true {
+                    Button {
+                        session.addTime(10)
+                    } label: {
+                        Text(verbatim: "+10")
+                            .font(.footnote.weight(.bold).monospacedDigit())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(PhaseStyle.controlFill, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add 10 seconds")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Add 10 seconds")
             }
 
             HStack(spacing: 10) {
@@ -96,7 +117,8 @@ struct WatchRunView: View {
                             label: session.isPaused ? "Resume" : "Pause", large: true) {
                     session.togglePause()
                 }
-                RoundButton(systemImage: "forward.end.fill", label: "Next interval") { session.skipForward() }
+                RoundButton(systemImage: session.isWaitingForDone ? "checkmark" : "forward.end.fill",
+                            label: session.isWaitingForDone ? "Done" : "Next interval") { session.skipForward() }
             }
             .padding(.top, 6)
         }
@@ -106,8 +128,10 @@ struct WatchRunView: View {
     private var counterText: String {
         var parts: [String] = []
         let plan = session.plan
-        if plan.roundsPerCycle > 0 {
-            parts.append(String(localized: "Round \(max(1, snapshot.segment?.round ?? 1))/\(plan.roundsPerCycle)"))
+        if plan.countsRounds {
+            parts.append(String(localized: "\(session.roundsCounted) rounds", comment: "AMRAP rounds counted so far"))
+        } else if let counter = (snapshot.segment ?? plan.segments.first).flatMap({ plan.roundCounter(for: $0) }) {
+            parts.append(String(localized: "Round \(counter.round)/\(counter.total)"))
         }
         if plan.cycleCount > 1 {
             parts.append(String(localized: "Cycle \(max(1, snapshot.segment?.cycle ?? 1))/\(plan.cycleCount)"))
@@ -124,7 +148,9 @@ struct WatchRunView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
                 LabeledContent("Total", value: TimeFormat.clock(Int(snapshot.elapsed.rounded())))
-                LabeledContent("Rounds", value: "\(session.roundsCompleted)/\(session.plan.workCount)")
+                LabeledContent("Rounds", value: session.plan.countsRounds
+                               ? "\(session.roundsCounted)"
+                               : "\(session.roundsCompleted)/\(session.plan.workCount)")
                 Button("Done") {
                     session.teardown()
                     dismiss()

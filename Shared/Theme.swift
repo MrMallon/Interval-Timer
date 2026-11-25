@@ -116,7 +116,7 @@ extension Color {
 enum TimerSummary {
     static func describe(_ definition: TimerDefinition) -> String {
         let plan = WorkoutPlan(name: "", definition: definition)
-        let total = TimeFormat.clock(plan.totalDuration)
+        let total = totalText(plan)
         switch definition {
         case .simple(let config):
             // Numbers and symbols only, so this reads the same in every language.
@@ -129,7 +129,21 @@ enum TimerSummary {
             return text + " · " + total
         case .custom:
             return String(localized: "\(plan.workCount) intervals", comment: "Number of work intervals in a custom timer") + " · " + total
+        case .amrap(let config):
+            // "AMRAP" is the same in every language.
+            let amrap = "AMRAP " + TimeFormat.clock(config.work)
+            return config.sets > 1 ? "\(config.sets) × \(amrap) · \(total)" : amrap
+        case .forTime(let config):
+            let name = String(localized: "For Time", comment: "Workout type: finish the work as fast as possible")
+            guard config.timeCap > 0 else { return name }
+            return name + " · " + String(localized: "\(TimeFormat.clock(config.timeCap)) cap", comment: "Time cap of a For Time workout, e.g. 20:00 cap")
         }
+    }
+
+    /// Total time; "12:30+" when some interval runs until the user taps Done.
+    static func totalText(_ plan: WorkoutPlan) -> String {
+        let total = TimeFormat.clock(plan.totalDuration)
+        return plan.openIndex != nil ? total + "+" : total
     }
 }
 
@@ -145,6 +159,8 @@ enum PresetText {
         case "circuit": return String(localized: "Circuit", comment: "Preset name")
         case "physio": return String(localized: "Physio holds", comment: "Preset name: physiotherapy contract/relax holds")
         case "pyramid": return String(localized: "Pyramid", comment: "Preset name: intervals that get longer then shorter")
+        case "amrap-12": return String(localized: "AMRAP 12", comment: "Preset name: as many rounds as possible in 12 minutes")
+        case "for-time": return String(localized: "For Time", comment: "Workout type: finish the work as fast as possible")
         default: return preset.name
         }
     }
@@ -159,6 +175,8 @@ enum PresetText {
         case "circuit": return String(localized: "45/15 × 6 stations, 3 cycles, 90 s between", comment: "Preset description")
         case "physio": return String(localized: "10 s contract / 10 s relax × 6, 5 sets", comment: "Preset description")
         case "pyramid": return String(localized: "20-30-40-50-40-30-20 s, 15 s rest", comment: "Preset description")
+        case "amrap-12": return String(localized: "As many rounds as possible in 12 min", comment: "Preset description")
+        case "for-time": return String(localized: "Finish as fast as you can, 20 min cap", comment: "Preset description")
         default: return preset.summary
         }
     }

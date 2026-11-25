@@ -44,7 +44,9 @@ struct SummaryView: View {
             tiles {
                 StatTile(title: "Total", value: TimeFormat.clock(Int(session.snapshot.elapsed.rounded())))
                 StatTile(title: "Working", value: TimeFormat.clock(Int(session.workSecondsDone.rounded())))
-                StatTile(title: "Rounds", value: "\(session.roundsCompleted)/\(session.plan.workCount)")
+                StatTile(title: "Rounds", value: session.plan.countsRounds
+                         ? "\(session.roundsCounted)"
+                         : "\(session.roundsCompleted)/\(session.plan.workCount)")
             }
             .padding(.horizontal)
 

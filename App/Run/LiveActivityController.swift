@@ -74,7 +74,8 @@ final class LiveActivityController {
         guard let old else { return true }
         if old.phaseName != new.phaseName || old.phaseKind != new.phaseKind || old.round != new.round
             || old.cycle != new.cycle || old.isFinished != new.isFinished || old.isPaused != new.isPaused
-            || old.nextName != new.nextName {
+            || old.nextName != new.nextName || old.countsUp != new.countsUp
+            || old.countsRounds != new.countsRounds || old.roundsCounted != new.roundsCounted {
             return true
         }
         if new.isPaused { return false }

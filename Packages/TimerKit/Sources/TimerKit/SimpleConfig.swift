@@ -71,16 +71,20 @@ public struct SimpleConfig: Codable, Hashable, Sendable {
     }
 }
 
-/// How a saved timer is defined: either the simple layout or a fully custom
-/// list of segments (pyramids, ladders, named exercises).
+/// How a saved timer is defined: the simple layout, a fully custom list of
+/// segments (pyramids, ladders, named exercises, repeat groups), AMRAP or For Time.
 public enum TimerDefinition: Codable, Hashable, Sendable {
     case simple(SimpleConfig)
     case custom([Segment])
+    case amrap(AmrapConfig)
+    case forTime(ForTimeConfig)
 
     public func segments() -> [Segment] {
         switch self {
         case .simple(let config): return config.segments()
-        case .custom(let segments): return segments.filter { $0.duration > 0 }
+        case .custom(let segments): return CustomLayout.expand(segments)
+        case .amrap(let config): return config.segments()
+        case .forTime(let config): return config.segments()
         }
     }
 }

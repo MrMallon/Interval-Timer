@@ -23,18 +23,20 @@ enum NotificationFallback {
         cancelAll()
         var scheduled = 0
         for (index, segment) in plan.segments.enumerated() {
+            // Nothing after an interval that waits for Done has a known time yet.
+            if let open = plan.openIndex, index > open { break }
             let start = TimeInterval(plan.startOffsets[index])
             guard start > elapsed + 0.5, scheduled < limit else { continue }
             let content = UNMutableNotificationContent()
             content.title = PhaseStyle.name(for: segment)
-            content.body = TimeFormat.clock(segment.duration)
+            content.body = segment.isOpenEnded ? String(localized: "Tap Done when you finish") : TimeFormat.clock(segment.duration)
             content.sound = .default
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: start - elapsed, repeats: false)
             center.add(UNNotificationRequest(identifier: "\(prefix)\(index)", content: content, trigger: trigger))
             scheduled += 1
         }
         let remaining = TimeInterval(plan.totalDuration) - elapsed
-        if remaining > 0.5 {
+        if remaining > 0.5, plan.openIndex == nil {
             let content = UNMutableNotificationContent()
             content.title = String(localized: "Workout complete")
             content.body = plan.name

@@ -12,7 +12,7 @@ final class RunSession: Identifiable {
     let name: String
     let color: ThemeColor
     let definition: TimerDefinition
-    /// Grows when the user adds time to an interval.
+    /// Changes when the user adds time to an interval or taps Done.
     private(set) var plan: WorkoutPlan
     let templateID: UUID?
 
@@ -22,6 +22,8 @@ final class RunSession: Identifiable {
     private(set) var startedAt: Date?
     private(set) var endedAt: Date?
     private(set) var endedEarly = false
+    /// AMRAP: rounds the user has tapped in.
+    private(set) var roundsCounted = 0
     /// One-line cue report shown (invisibly) to UI tests.
     private(set) var debugSummary = "starts=0 countdowns=0 bg=0 maxLate=0.00 audio=0"
 
@@ -89,8 +91,25 @@ final class RunSession: Identifiable {
         haptics.prepare()
         process(at: now)
         liveActivity.start(name: name, color: color, state: activityState())
+        WorkoutRemote.register(self) { [weak self] command in
+            self?.handle(command)
+        }
         startLoop()
         updateIdleTimer()
+    }
+
+    /// A button on the Lock Screen or in the Dynamic Island.
+    func handle(_ command: WorkoutCommand) {
+        guard !isFinished else { return }
+        switch command {
+        case .togglePause: togglePause()
+        case .next: skipForward()
+        case .countRound: countRound()
+        }
+        // Silent workouts mark phase changes with notifications; those are now out of date.
+        if UIApplication.shared.applicationState == .background {
+            sceneDidEnterBackground()
+        }
     }
 
     func togglePause() {
@@ -105,11 +124,41 @@ final class RunSession: Identifiable {
         updateIdleTimer()
     }
 
+    /// Next interval. On an interval that waits for a tap, this is Done.
     func skipForward() {
         let now = Self.now()
         engine.skipForward(at: now)
+        adoptPlanChanges()
         cursor.jump(to: engine.elapsed(at: now))
         process(at: now, force: true)
+    }
+
+    /// True while the interval running now waits for the user to tap Done.
+    var isWaitingForDone: Bool { snapshot.segment?.untilTapped ?? false }
+
+    /// AMRAP: one more round finished.
+    func countRound() {
+        guard snapshot.segment?.countsRounds == true, !isFinished else { return }
+        roundsCounted += 1
+        if settings.cue.haptics { haptics.tick() }
+        if settings.cue.voice {
+            audio.speak(String(localized: "Round \(roundsCounted)", comment: "Spoken when the user counts an AMRAP round"))
+        }
+        process(at: Self.now(), force: true)
+    }
+
+    /// Takes back a round counted by mistake.
+    func uncountRound() {
+        guard roundsCounted > 0 else { return }
+        roundsCounted -= 1
+        process(at: Self.now(), force: true)
+    }
+
+    /// Done and +10 change the plan; cues are planned again from the new one.
+    private func adoptPlanChanges() {
+        guard engine.plan != plan else { return }
+        plan = engine.plan
+        cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
     }
 
     func skipBackward() {
@@ -149,6 +198,7 @@ final class RunSession: Identifiable {
         loop?.cancel()
         loop = nil
         liveActivity.end(nil, finished: false)
+        WorkoutRemote.unregister(self)
         audio.deactivate()
         NotificationFallback.cancelAll()
         UIApplication.shared.isIdleTimerDisabled = false
@@ -164,7 +214,11 @@ final class RunSession: Identifiable {
     func sceneDidEnterBackground() {
         // With sound on, background audio keeps us running. With every sound
         // off we leave audio alone, so local notifications mark phase changes.
-        guard settings.cue.isSilent, engine.status == .running else { return }
+        guard settings.cue.isSilent else { return }
+        guard engine.status == .running else {
+            NotificationFallback.cancelAll()
+            return
+        }
         NotificationFallback.schedule(plan: plan, elapsed: engine.elapsed(at: Self.now()))
     }
 
@@ -262,7 +316,7 @@ final class RunSession: Identifiable {
 
     /// What the Lock Screen / Dynamic Island should show right now.
     private func activityState() -> WorkoutActivityAttributes.ContentState {
-        .make(snapshot: snapshot, plan: plan, now: Date()) { PhaseStyle.name(for: $0) }
+        .make(snapshot: snapshot, plan: plan, now: Date(), roundsCounted: roundsCounted) { PhaseStyle.name(for: $0) }
     }
 
     /// True while the Live Activity is showing, for tests.
@@ -321,25 +375,11 @@ final class RunSession: Identifiable {
     // MARK: - Results
 
     /// Seconds of work actually completed.
-    var workSecondsDone: Double {
-        let elapsed = snapshot.elapsed
-        var total: Double = 0
-        for (index, segment) in plan.segments.enumerated() where segment.kind == .work {
-            let start = Double(plan.startOffsets[index])
-            let end = start + Double(segment.duration)
-            total += max(0, min(end, elapsed) - start)
-        }
-        return total
-    }
+    var workSecondsDone: Double { plan.workSeconds(upTo: snapshot.elapsed) }
 
-    /// Work segments fully completed.
+    /// Work intervals fully completed, or the rounds counted in an AMRAP.
     var roundsCompleted: Int {
-        let elapsed = snapshot.elapsed
-        var count = 0
-        for (index, segment) in plan.segments.enumerated() where segment.kind == .work {
-            if Double(plan.startOffsets[index] + segment.duration) <= elapsed + 0.001 { count += 1 }
-        }
-        return count
+        plan.countsRounds ? roundsCounted : plan.workIntervalsDone(upTo: snapshot.elapsed)
     }
 
     func makeRecord() -> WorkoutRecord {
@@ -352,7 +392,8 @@ final class RunSession: Identifiable {
             totalSeconds: snapshot.elapsed,
             workSeconds: workSecondsDone,
             roundsCompleted: roundsCompleted,
-            totalRounds: plan.workCount,
+            // AMRAP rounds have no target; 0 tells History to show just the count.
+            totalRounds: plan.countsRounds ? 0 : plan.workCount,
             completed: !endedEarly && isFinished,
             definition: definition
         )

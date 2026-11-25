@@ -29,15 +29,20 @@ struct WorkoutLiveActivity: Widget {
                         .multilineTextAlignment(.trailing)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Text(context.attributes.timerName)
-                            .lineLimit(1)
-                        Spacer()
-                        Text(counterText(state))
-                            .monospacedDigit()
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text(context.attributes.timerName)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(counterText(state))
+                                .monospacedDigit()
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        if !state.isFinished {
+                            ActivityControls(state: state, fill: phaseColor(state))
+                        }
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
                 }
             } compactLeading: {
                 Image(systemName: symbol(state))
@@ -60,6 +65,17 @@ private struct LockScreenView: View {
     let state: WorkoutActivityAttributes.ContentState
 
     var body: some View {
+        VStack(spacing: 12) {
+            summary
+            if !state.isFinished {
+                ActivityControls(state: state, fill: .white.opacity(0.22))
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(16)
+    }
+
+    private var summary: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Label {
@@ -94,21 +110,59 @@ private struct LockScreenView: View {
                 }
             }
         }
-        .foregroundStyle(.white)
-        .padding(16)
     }
 }
 
-/// Ticks by itself while running; frozen while paused.
+/// Pause/Resume, Next (Done on an interval that waits for a tap) and, in an
+/// AMRAP, "+1 round". The taps run in the app through `LiveActivityIntent`s.
+private struct ActivityControls: View {
+    let state: WorkoutActivityAttributes.ContentState
+    let fill: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(intent: ToggleWorkoutPauseIntent()) {
+                control(state.isPaused ? "Resume" : "Pause", systemImage: state.isPaused ? "play.fill" : "pause.fill")
+            }
+            if state.isCountingRounds {
+                Button(intent: CountRoundIntent()) {
+                    control("+1 round", systemImage: "plus.circle.fill")
+                }
+            }
+            Button(intent: NextIntervalIntent()) {
+                if state.isCountingUp {
+                    control("Done", systemImage: "checkmark")
+                } else {
+                    control("Next", systemImage: "forward.end.fill")
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func control(_ title: LocalizedStringKey, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, minHeight: 36)
+            .background(fill, in: Capsule())
+    }
+}
+
+/// Ticks by itself while running; frozen while paused. Counts up on an
+/// interval that waits for a tap.
 private struct Countdown: View {
     let state: WorkoutActivityAttributes.ContentState
 
     var body: some View {
         Group {
-            if let remaining = state.pausedRemaining {
-                Text(TimeFormat.countdown(remaining))
+            if let shown = state.pausedRemaining {
+                Text(state.isCountingUp ? TimeFormat.clock(Int(shown)) : TimeFormat.countdown(shown))
             } else if state.isFinished {
                 Text(TimeFormat.countdown(0))
+            } else if state.isCountingUp {
+                Text(state.phaseStart, style: .timer)
             } else {
                 Text(timerInterval: state.phaseStart...max(state.phaseStart, state.phaseEnd), countsDown: true)
             }
@@ -131,6 +185,9 @@ private func symbol(_ state: WorkoutActivityAttributes.ContentState) -> String {
 
 private func counterText(_ state: WorkoutActivityAttributes.ContentState) -> String {
     var parts: [String] = []
+    if state.isCountingRounds {
+        parts.append(String(localized: "\(state.roundsCounted ?? 0) rounds", comment: "AMRAP rounds counted so far"))
+    }
     if state.roundsTotal > 0 {
         parts.append(String(localized: "Round \(state.round)/\(state.roundsTotal)"))
     }

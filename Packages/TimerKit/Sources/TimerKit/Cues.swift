@@ -148,6 +148,11 @@ public enum CuePlanner {
             let start = plan.startOffsets[index]
             let end = start + segment.duration
             cues.append(ScheduledCue(time: TimeInterval(start), event: .segmentStart(index: index)))
+            // Waiting for a tap: when it ends isn't known yet, so nothing after it
+            // is scheduled. The timeline is planned again once the user taps Done.
+            if segment.isOpenEnded {
+                return sorted(cues)
+            }
 
             // Final countdown: never on the segment's very first second.
             let countdownLength = min(countdown, segment.duration - 1)
@@ -176,7 +181,7 @@ public enum CuePlanner {
             }
 
             // "Up next" during non-work segments that are followed by something.
-            if segment.kind != .work, index + 1 < plan.segments.count {
+            if segment.kind != .work, !segment.untilTapped, index + 1 < plan.segments.count {
                 let lead = countdown + upNextLead
                 if segment.duration >= lead + 2 {
                     let time = end - lead
@@ -195,7 +200,11 @@ public enum CuePlanner {
         }
 
         cues.append(ScheduledCue(time: TimeInterval(plan.totalDuration), event: .finished))
-        return cues.sorted { lhs, rhs in
+        return sorted(cues)
+    }
+
+    private static func sorted(_ cues: [ScheduledCue]) -> [ScheduledCue] {
+        cues.sorted { lhs, rhs in
             if lhs.time != rhs.time { return lhs.time < rhs.time }
             return lhs.event.priority > rhs.event.priority
         }

@@ -52,8 +52,8 @@ enum VoiceScript {
             if plan.cycleCount > 1, segment.round == 1 {
                 parts.append(String(localized: "cycle \(segment.cycle) of \(plan.cycleCount)"))
             }
-            if plan.roundsPerCycle > 1, segment.round > 0 {
-                parts.append(String(localized: "round \(segment.round) of \(plan.roundsPerCycle)"))
+            if let counter = plan.roundCounter(for: segment), counter.total > 1, segment.round > 0 {
+                parts.append(String(localized: "round \(counter.round) of \(counter.total)"))
             }
             if parts.isEmpty { parts.append(PhaseStyle.name(for: .work)) }
             return String(localized: "Next: \(parts.joined(separator: ", "))")

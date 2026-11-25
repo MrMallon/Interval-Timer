@@ -13,7 +13,7 @@ final class WatchRunSession: Identifiable {
     let name: String
     let color: ThemeColor
     let definition: TimerDefinition
-    /// Grows when the user adds time to an interval.
+    /// Changes when the user adds time to an interval or taps Done.
     private(set) var plan: WorkoutPlan
 
     private(set) var snapshot: TimerSnapshot
@@ -21,6 +21,8 @@ final class WatchRunSession: Identifiable {
     private(set) var startedAt: Date?
     private(set) var endedAt: Date?
     private(set) var endedEarly = false
+    /// AMRAP: rounds the user has tapped in.
+    private(set) var roundsCounted = 0
 
     @ObservationIgnored private var engine: TimerEngine
     @ObservationIgnored private var cursor: CueCursor
@@ -79,11 +81,30 @@ final class WatchRunSession: Identifiable {
         process(at: now)
     }
 
+    /// Next interval. On an interval that waits for a tap, this is Done.
     func skipForward() {
         let now = Self.now()
         engine.skipForward(at: now)
+        if engine.plan != plan {
+            plan = engine.plan
+            cursor = CueCursor(cues: CuePlanner.cues(for: plan, settings: settings.cue))
+        }
         cursor.jump(to: engine.elapsed(at: now))
         process(at: now, force: true)
+    }
+
+    /// True while the interval running now waits for the user to tap Done.
+    var isWaitingForDone: Bool { snapshot.segment?.untilTapped ?? false }
+
+    /// AMRAP: one more round finished.
+    func countRound() {
+        guard snapshot.segment?.countsRounds == true, !isFinished else { return }
+        roundsCounted += 1
+        if settings.cue.haptics { WKInterfaceDevice.current().play(.click) }
+    }
+
+    func uncountRound() {
+        roundsCounted = max(0, roundsCounted - 1)
     }
 
     /// "+10 s": lengthens the interval running now.
@@ -181,24 +202,12 @@ final class WatchRunSession: Identifiable {
 
     // MARK: - Results
 
+    /// Work intervals fully completed, or the rounds counted in an AMRAP.
     var roundsCompleted: Int {
-        let elapsed = snapshot.elapsed
-        var count = 0
-        for (index, segment) in plan.segments.enumerated() where segment.kind == .work {
-            if Double(plan.startOffsets[index] + segment.duration) <= elapsed + 0.001 { count += 1 }
-        }
-        return count
+        plan.countsRounds ? roundsCounted : plan.workIntervalsDone(upTo: snapshot.elapsed)
     }
 
-    var workSecondsDone: Double {
-        let elapsed = snapshot.elapsed
-        var total: Double = 0
-        for (index, segment) in plan.segments.enumerated() where segment.kind == .work {
-            let start = Double(plan.startOffsets[index])
-            total += max(0, min(start + Double(segment.duration), elapsed) - start)
-        }
-        return total
-    }
+    var workSecondsDone: Double { plan.workSeconds(upTo: snapshot.elapsed) }
 
     func makeRecord() -> WorkoutRecord {
         WorkoutRecord(
@@ -210,7 +219,7 @@ final class WatchRunSession: Identifiable {
             totalSeconds: snapshot.elapsed,
             workSeconds: workSecondsDone,
             roundsCompleted: roundsCompleted,
-            totalRounds: plan.workCount,
+            totalRounds: plan.countsRounds ? 0 : plan.workCount,
             completed: !endedEarly && isFinished,
             definition: definition
         )

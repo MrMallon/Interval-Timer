@@ -55,7 +55,17 @@ public struct TimerEngine: Sendable {
         if let runStartedAt {
             value += max(0, now - runStartedAt)
         }
-        return min(max(0, value), total)
+        value = max(0, value)
+        // Waiting for a tap: the clock keeps counting inside that interval.
+        if let open = plan.openIndex, value >= TimeInterval(plan.startOffsets[open]) {
+            return value
+        }
+        return min(value, total)
+    }
+
+    /// The workout ends once the clock passes the end, unless an interval is still waiting for a tap.
+    private func isPastEnd(_ elapsed: TimeInterval) -> Bool {
+        plan.openIndex == nil && elapsed >= total
     }
 
     // MARK: - Controls
@@ -95,9 +105,14 @@ public struct TimerEngine: Sendable {
     }
 
     /// Jumps to the start of the next segment, or finishes if there is none.
+    /// On a "tap when done" interval this is Done: the time taken is kept.
     public mutating func skipForward(at now: TimeInterval) {
         guard status == .running || status == .paused else { return }
         guard let index = plan.segmentIndex(at: elapsed(at: now)) else { return }
+        if plan.segments[index].untilTapped {
+            completeCurrentSegment(at: now)
+            return
+        }
         let next = index + 1
         if next < plan.segments.count {
             seek(to: TimeInterval(plan.startOffsets[next]), at: now)
@@ -136,13 +151,36 @@ public struct TimerEngine: Sendable {
     public mutating func extendCurrentSegment(by seconds: Int, at now: TimeInterval) -> Bool {
         guard status == .running || status == .paused, seconds > 0 else { return false }
         let position = elapsed(at: now)
-        guard let index = plan.segmentIndex(at: position) else { return false }
+        guard let index = plan.segmentIndex(at: position), !plan.segments[index].isOpenEnded else { return false }
         var segments = plan.segments
         segments[index].duration += seconds
         plan = WorkoutPlan(name: plan.name, segments: segments)
         // Re-anchor so elapsed is unchanged under the longer plan.
         banked = position
         if status == .running { runStartedAt = now }
+        return true
+    }
+
+    /// Done: ends the "tap when done" interval running now and moves on. Its
+    /// length becomes the time it took (rounded up to a whole second).
+    /// Returns false when the current interval isn't one that waits for a tap.
+    @discardableResult
+    public mutating func completeCurrentSegment(at now: TimeInterval) -> Bool {
+        guard status == .running || status == .paused else { return false }
+        let position = elapsed(at: now)
+        guard let index = plan.segmentIndex(at: position), plan.segments[index].untilTapped else { return false }
+        let start = plan.startOffsets[index]
+        var taken = max(1, Int((position - TimeInterval(start)).rounded(.up)))
+        let cap = plan.segments[index].duration
+        if cap > 0 { taken = min(taken, cap) }
+        var segments = plan.segments
+        segments[index].duration = taken
+        // Done, so it no longer holds the clock.
+        segments[index].untilTapped = false
+        plan = WorkoutPlan(name: plan.name, segments: segments)
+        banked = TimeInterval(start + taken)
+        if status == .running { runStartedAt = now }
+        update(at: now)
         return true
     }
 
@@ -157,7 +195,7 @@ public struct TimerEngine: Sendable {
     @discardableResult
     public mutating func update(at now: TimeInterval) -> Bool {
         guard status == .running || status == .paused else { return false }
-        if elapsed(at: now) >= total {
+        if isPastEnd(elapsed(at: now)) {
             banked = total
             runStartedAt = nil
             status = .finished
@@ -170,7 +208,7 @@ public struct TimerEngine: Sendable {
 
     public func snapshot(at now: TimeInterval) -> TimerSnapshot {
         let elapsed = elapsed(at: now)
-        let effectiveStatus: Status = (status == .running || status == .paused) && elapsed >= total
+        let effectiveStatus: Status = (status == .running || status == .paused) && isPastEnd(elapsed)
             ? .finished : status
         let index = effectiveStatus == .finished ? nil : plan.segmentIndex(at: elapsed)
         let segment = index.map { plan.segments[$0] }
@@ -181,9 +219,16 @@ public struct TimerEngine: Sendable {
         var progress: Double = 0
         if let index, let segment {
             inSegment = elapsed - TimeInterval(plan.startOffsets[index])
-            remaining = max(0, TimeInterval(segment.duration) - inSegment)
-            progress = segment.duration > 0 ? min(1, inSegment / TimeInterval(segment.duration)) : 1
+            if segment.isOpenEnded {
+                remaining = 0
+                progress = 0
+            } else {
+                remaining = max(0, TimeInterval(segment.duration) - inSegment)
+                progress = segment.duration > 0 ? min(1, inSegment / TimeInterval(segment.duration)) : 1
+            }
         }
+        // Only the timed part is known while an interval waits for a tap.
+        let timedElapsed = plan.openIndex.map { min(elapsed, TimeInterval(plan.startOffsets[$0])) } ?? elapsed
 
         return TimerSnapshot(
             status: effectiveStatus,
@@ -193,9 +238,9 @@ public struct TimerEngine: Sendable {
             nextSegment: next,
             elapsedInSegment: inSegment,
             remainingInSegment: remaining,
-            totalRemaining: max(0, total - elapsed),
+            totalRemaining: max(0, total - timedElapsed),
             segmentProgress: progress,
-            totalProgress: total > 0 ? min(1, elapsed / total) : 1
+            totalProgress: total > 0 ? min(1, timedElapsed / total) : 1
         )
     }
 }
