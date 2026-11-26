@@ -1,15 +1,18 @@
 #!/bin/zsh
 # Keeps Interval Timer installed on an iPhone signed with a free Apple ID, whose
-# signing runs out after 7 days. A daily launchd job rebuilds `main` from GitHub
-# and reinstalls it once the last install is MIN_DAYS old, retrying the next day
+# signing runs out after 7 days. A daily launchd job rebuilds your local `main`
+# branch and reinstalls it once the last install is MIN_DAYS old, retrying the next day
 # if the phone wasn't reachable or the build failed.
 #
 #   scripts/reinstall-on-device.sh setup     install (or update) the daily job
 #   scripts/reinstall-on-device.sh remove    remove the daily job
 #   scripts/reinstall-on-device.sh run       what the job runs; add --force to skip the age check
 #
-# launchd jobs can't read ~/Documents, so `setup` copies this script, and the job
-# builds its own clone, under ~/Library/Application Support/IntervalTimerReinstall.
+# The job runs this script straight from the repo, so the repo must live outside
+# Desktop, Documents, Downloads and iCloud Drive (macOS blocks launchd jobs there).
+# It builds a separate copy of `main` under
+# ~/Library/Application Support/IntervalTimerReinstall, so your working folder,
+# other branches and unfinished edits are never touched or installed.
 #
 # Settings (env vars, defaults for this Mac): DEVICE_ID, TEAM_ID, MIN_DAYS, HOUR.
 
@@ -21,7 +24,7 @@ DEVICE_ID="${DEVICE_ID:-00008101-00167D223450001E}"
 TEAM_ID="${TEAM_ID:-K2T6KDC64F}"
 MIN_DAYS="${MIN_DAYS:-4}"
 HOUR="${HOUR:-19}"
-REPO_URL="https://github.com/MrMallon/Interval-Timer.git"
+REPO="${SELF:h:h}"
 
 LABEL="com.mrmallon.intervaltimer.reinstall"
 STATE_DIR="$HOME/Library/Application Support/IntervalTimerReinstall"
@@ -31,9 +34,13 @@ LOG="$HOME/Library/Logs/IntervalTimerReinstall.log"
 log() { print -r -- "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
 
 setup() {
+  case "$REPO" in
+    "$HOME"/Desktop/*|"$HOME"/Documents/*|"$HOME"/Downloads/*|"$HOME"/Library/Mobile\ Documents/*)
+      print "The repo is in a folder macOS hides from launchd jobs ($REPO). Move it, e.g. to ~/Developer."
+      return 1 ;;
+  esac
   mkdir -p "$STATE_DIR" "$(dirname "$PLIST")"
-  cp "$SELF" "$STATE_DIR/reinstall-on-device.sh"
-  chmod +x "$STATE_DIR/reinstall-on-device.sh"
+  rm -f "$STATE_DIR/reinstall-on-device.sh"
   cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -42,7 +49,7 @@ setup() {
     <key>Label</key><string>$LABEL</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$STATE_DIR/reinstall-on-device.sh</string>
+        <string>$SELF</string>
         <string>run</string>
     </array>
     <key>EnvironmentVariables</key>
@@ -85,17 +92,15 @@ run() {
     fi
   fi
 
-  if ! xcrun devicectl list devices 2>/dev/null | grep -q "$DEVICE_ID.*connected"; then
+  if ! xcrun devicectl list devices 2>/dev/null | grep -qE "$DEVICE_ID.*(connected|available)"; then
     log "iPhone $DEVICE_ID isn't reachable (needs the same Wi-Fi or a cable). Will retry next run."
     return 1
   fi
 
-  log "Updating source from GitHub main"
-  if [[ -d "$src/.git" ]]; then
-    git -C "$src" fetch --quiet origin main && git -C "$src" reset --quiet --hard origin/main
-  else
-    git clone --quiet --branch main "$REPO_URL" "$src"
-  fi || { log "Couldn't fetch the source. Will retry next run."; return 1; }
+  log "Updating build copy from local main in $REPO"
+  [[ -d "$src/.git" ]] || git init --quiet "$src"
+  { git -C "$src" fetch --quiet "$REPO" main && git -C "$src" reset --quiet --hard FETCH_HEAD; } \
+    || { log "Couldn't read main from $REPO. Will retry next run."; return 1; }
 
   cd "$src" || return 1
   xcodegen --quiet || { log "xcodegen failed"; return 1; }
