@@ -4,7 +4,6 @@ import SwiftUI
 /// Pick the voice that speaks cues. Tapping a voice selects it and plays a sample.
 struct VoicePickerView: View {
     @Environment(SettingsStore.self) private var settings
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var voices: [AVSpeechSynthesisVoice] = []
     @State private var previewer = VoicePreviewer()
@@ -34,14 +33,6 @@ struct VoicePickerView: View {
                 }
             } footer: {
                 Text("For a more natural voice, download an Enhanced or Premium one: open Settings, search for “Voices” and pick a voice for your language.")
-            }
-
-            Section {
-                // iOS has no public link to the Voices screen, so this opens
-                // the Settings app (on this app's page); the footer says what to search for.
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                }
             }
         }
         .navigationTitle("Speaking voice")
