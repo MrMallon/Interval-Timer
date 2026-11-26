@@ -9388,90 +9388,90 @@
         }
       }
     },
-    "For a more natural voice, download an Enhanced or Premium voice in Settings › Accessibility › Spoken Content › Voices." : {
+    "For a more natural voice, download an Enhanced or Premium one: open Settings, search for “Voices” and pick a voice for your language." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Für eine natürlichere Stimme lade in Einstellungen › Bedienungshilfen › Gesprochene Inhalte › Stimmen eine erweiterte oder Premium-Stimme."
+            "value" : "Für eine natürlichere Stimme lade eine erweiterte oder Premium-Stimme: Öffne Einstellungen, suche nach „Stimmen“ und wähle eine Stimme für deine Sprache."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Para una voz más natural, descarga una voz mejorada o premium en Ajustes › Accesibilidad › Contenido leído › Voces."
+            "value" : "Para una voz más natural, descarga una voz mejorada o premium: abre Ajustes, busca «Voces» y elige una voz para tu idioma."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pour une voix plus naturelle, téléchargez une voix améliorée ou premium dans Réglages › Accessibilité › Contenu énoncé › Voix."
+            "value" : "Pour une voix plus naturelle, téléchargez une voix améliorée ou premium : ouvrez Réglages, recherchez « Voix » et choisissez une voix pour votre langue."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Per una voce più naturale, scarica una voce migliorata o premium in Impostazioni › Accessibilità › Contenuto letto › Voci."
+            "value" : "Per una voce più naturale, scarica una voce migliorata o premium: apri Impostazioni, cerca “Voci” e scegli una voce per la tua lingua."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "より自然な声にするには、設定 › アクセシビリティ › 読み上げコンテンツ › 声 で拡張またはプレミアムの声をダウンロードしてください。"
+            "value" : "より自然な声にするには、拡張またはプレミアムの声をダウンロードしてください。設定を開いて「声」を検索し、使用する言語の声を選びます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "더 자연스러운 음성을 원하면 설정 › 손쉬운 사용 › 콘텐츠 말하기 › 음성에서 향상됨 또는 프리미엄 음성을 다운로드하세요."
+            "value" : "더 자연스러운 음성을 원하면 향상됨 또는 프리미엄 음성을 다운로드하세요. 설정을 열고 ‘음성’을 검색한 다음 사용하는 언어의 음성을 선택하세요."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voor een natuurlijkere stem download je een verbeterde of premium stem via Instellingen › Toegankelijkheid › Gesproken materiaal › Stemmen."
+            "value" : "Voor een natuurlijkere stem download je een verbeterde of premium stem: open Instellingen, zoek naar ‘Stemmen’ en kies een stem voor je taal."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Para uma voz mais natural, baixe uma voz aprimorada ou premium em Ajustes › Acessibilidade › Conteúdo Falado › Vozes."
+            "value" : "Para uma voz mais natural, baixe uma voz aprimorada ou premium: abra Ajustes, busque “Vozes” e escolha uma voz para o seu idioma."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Для более естественного голоса загрузите улучшенный или премиум-голос в разделе «Настройки» › «Универсальный доступ» › «Устный контент» › «Голоса»."
+            "value" : "Для более естественного голоса загрузите улучшенный или премиум-голос: откройте «Настройки», найдите «Голоса» и выберите голос для своего языка."
           }
         },
         "sv" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "För en mer naturlig röst laddar du ned en förbättrad röst eller premiumröst i Inställningar › Hjälpmedel › Talat innehåll › Röster."
+            "value" : "För en mer naturlig röst laddar du ned en förbättrad röst eller premiumröst: öppna Inställningar, sök efter ”Röster” och välj en röst för ditt språk."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "หากต้องการเสียงที่เป็นธรรมชาติขึ้น ให้ดาวน์โหลดเสียงแบบปรับปรุงหรือพรีเมียมใน การตั้งค่า › การช่วยการเข้าถึง › เนื้อหาที่พูด › เสียง"
+            "value" : "หากต้องการเสียงที่เป็นธรรมชาติขึ้น ให้ดาวน์โหลดเสียงแบบปรับปรุงหรือพรีเมียม: เปิดการตั้งค่า ค้นหา “เสียง” แล้วเลือกเสียงสำหรับภาษาของคุณ"
           }
         },
         "tr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Daha doğal bir ses için Ayarlar › Erişilebilirlik › Seslendirilen İçerik › Sesler bölümünden Geliştirilmiş veya Premium bir ses indirin."
+            "value" : "Daha doğal bir ses için Geliştirilmiş veya Premium bir ses indirin: Ayarlar’ı açın, “Sesler” diye arayın ve dilinize uygun bir ses seçin."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "如需更自然的声音，请前往“设置” › “辅助功能” › “朗读内容” › “声音”下载增强或高级声音。"
+            "value" : "如需更自然的声音，请下载增强或高级声音：打开“设置”，搜索“声音”，然后选择适合你语言的声音。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "如需更自然的聲音，請前往「設定」›「輔助使用」›「語音內容」›「聲音」下載增強或進階聲音。"
+            "value" : "如需更自然的聲音，請下載增強或進階聲音：打開「設定」，搜尋「聲音」，然後選擇適合你語言的聲音。"
           }
         }
       }
@@ -13003,6 +13003,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打開 Interval Timer 來加入計時器。"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen öffnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir Réglages"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Impostazioni"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 열기"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Instellingen"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть настройки"
+          }
+        },
+        "sv" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öppna Inställningar"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดการตั้งค่า"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ayarlar’ı Aç"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打開設定"
           }
         }
       }
